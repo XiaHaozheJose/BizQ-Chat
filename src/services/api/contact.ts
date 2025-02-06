@@ -11,6 +11,8 @@ import type {
   ContactResponse,
   ContactGroupResponse,
   ApiResponse,
+  User,
+  Business,
 } from '@/types'
 
 // 获取联系人列表
@@ -62,5 +64,19 @@ export const updateContactGroup = async (id: string, data: UpdateGroupParams): P
 // 删除联系人分组
 export const deleteContactGroup = async (id: string): Promise<ApiResponse<null>> => {
   const response = await api.delete<ApiResponse<null>>(`/contact-groups/${id}`)
+  return response.data
+}
+
+// 搜索用户
+export const searchUsers = async (params: {
+  keyword: string
+  type?: 'user' | 'shop' | 'all'
+  page?: number
+  limit?: number
+}): Promise<ApiResponse<{
+  users: (User | Business)[]
+  total: number
+}>> => {
+  const response = await api.get('/operators/search', { params })
   return response.data
 } 

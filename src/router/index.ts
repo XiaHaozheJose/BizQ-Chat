@@ -1,52 +1,42 @@
-import { createRouter, createWebHashHistory } from 'vue-router'
-import { RouteRecordRaw } from 'vue-router'
+import { createRouter, createWebHistory } from 'vue-router'
+import HomeView from '../views/HomeView.vue'
+import LoginView from '../views/LoginView.vue'
 
 const router = createRouter({
-  history: createWebHashHistory(),
+  history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     {
       path: '/',
-      component: Layout,
-      children: [
-        {
-          path: '',
-          name: 'chat',
-          component: () => import('@/views/chat/index.vue'),
-          meta: {
-            title: '聊天',
-            icon: 'chat',
-          },
-        },
-        {
-          path: 'contact',
-          name: 'contact',
-          component: () => import('@/views/contact/index.vue'),
-          meta: {
-            title: '联系人',
-            icon: 'contact',
-          },
-        },
-      ],
+      name: 'home',
+      component: HomeView,
+      meta: { requiresAuth: true }
     },
     {
       path: '/login',
       name: 'login',
-      component: () => import('@/views/login/index.vue'),
-      meta: {
-        title: '登录',
-      },
-    },
-  ],
+      component: LoginView
+    }
+  ]
 })
 
-// 路由守卫
 router.beforeEach((to, from, next) => {
-  const isAuthenticated = localStorage.getItem('token')
+  const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true'
   
-  if (to.name !== 'login' && !isAuthenticated) {
-    next({ name: 'login' })
+  if (to.matched.some(record => record.meta.requiresAuth)) {
+    if (!isLoggedIn) {
+      next({
+        path: '/login',
+        query: { redirect: to.fullPath }
+      })
+    } else {
+      next()
+    }
   } else {
-    next()
+    if (isLoggedIn && to.path === '/login') {
+      next('/')
+    } else {
+      next()
+    }
   }
 })
 

@@ -235,6 +235,12 @@
       :contact="selectedContact"
       @deleted="handleContactDeleted"
     />
+    
+    <!-- 搜索用户弹窗 -->
+    <search-user-dialog
+      v-model="showSearchUserDialog"
+      @added="handleContactAdded"
+    />
   </div>
 </template>
 
@@ -255,6 +261,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import type { Contact } from '@/types'
 import { useContactStore } from '@/store/contact'
 import ContactDetail from './ContactDetail.vue'
+import SearchUserDialog from './SearchUserDialog.vue'
 
 const contactStore = useContactStore()
 
@@ -274,6 +281,7 @@ const addContactFormRef = ref()
 const editingGroupId = ref('')
 const editingGroupName = ref('')
 const newGroupName = ref('')
+const showSearchUserDialog = ref(false)
 
 // 表单校验规则
 const addContactRules = {
@@ -345,21 +353,12 @@ const handlePageChange = (page: number) => {
   contactStore.loadContacts(page)
 }
 
-const handleAddContact = async () => {
-  if (!addContactFormRef.value) return
-  
-  try {
-    await addContactFormRef.value.validate()
-    await contactStore.createContact(addContactForm.value)
-    showAddContactDialog.value = false
-    addContactForm.value = {
-      friendId: '',
-      remark: '',
-      groupIds: [],
-    }
-  } catch (error) {
-    // 表单验证失败
-  }
+const handleAddContact = () => {
+  showSearchUserDialog.value = true
+}
+
+const handleContactAdded = () => {
+  contactStore.loadContacts()
 }
 
 const handleEditGroup = (group: { id: string; name: string }) => {

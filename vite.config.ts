@@ -12,11 +12,21 @@ export default defineConfig({
       {
         // Main process entry file of the Electron App.
         entry: 'electron/main.ts',
+        vite: {
+          build: {
+            outDir: 'dist-electron/main',
+          },
+        },
       },
       {
-        entry: 'electron/preload.ts',
+        entry: 'electron/preload/index.ts',
         onstart(options) {
           options.reload()
+        },
+        vite: {
+          build: {
+            outDir: 'dist-electron/preload',
+          },
         },
       },
     ]),

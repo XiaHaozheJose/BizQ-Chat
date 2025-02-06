@@ -1,9 +1,20 @@
 <template>
-  <router-view />
+  <router-view></router-view>
 </template>
 
 <script setup lang="ts">
-// App root component
+import { onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+
+const router = useRouter()
+
+onMounted(() => {
+  // 检查登录状态
+  const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true'
+  if (!isLoggedIn) {
+    router.push('/login')
+  }
+})
 </script>
 
 <style>
