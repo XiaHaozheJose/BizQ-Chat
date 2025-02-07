@@ -10,15 +10,18 @@
     "rebuild": "electron-rebuild -f -w sqlite3"
   },
   "dependencies": {
+    "@element-plus/icons-vue": "^2.3.1",
     "@vueuse/core": "^10.7.2",
     "axios": "^1.6.7",
     "electron-store": "^8.1.0",
-    "element-plus": "^2.5.3",
+    "element-plus": "^2.9.3",
     "firebase": "^10.7.2",
+    "idb": "^8.0.2",
     "pinia": "^2.1.7",
     "socket.io-client": "^4.7.4",
     "sqlite3": "^5.1.7",
     "vue": "^3.4.15",
+    "vue-i18n": "^9.14.2",
     "vue-router": "^4.2.5"
   },
   "devDependencies": {
@@ -56,4 +59,4 @@
       "target": "AppImage"
     }
   }
-} 
+}

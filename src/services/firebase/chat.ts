@@ -1,130 +1,204 @@
-import { ref, onValue, set, get, query, orderByChild, equalTo } from 'firebase/database'
-import { database } from './config'
-import type { Message, Conversation } from '@/types'
-import { useChatStore } from '@/store/chat'
-import { useUserStore } from '@/store/user'
+import {
+  ref,
+  onValue,
+  off,
+  query,
+  limitToLast,
+  set,
+  remove,
+  get,
+  push,
+  DatabaseReference,
+} from "firebase/database";
+import { database } from "./index";
+import { FirebaseConstants } from "./config";
+import type { Message, Conversation, ConversationUser } from "@/types/chat";
 
-const firebasePaths = {
-  conversations: 'BQConversation',
-  users: 'BQConversationUser',
-}
+const {
+  TABLES: { CONVERSATION, CONVERSATION_MESSAGE, CONVERSATION_USER },
+  FIELDS,
+  MESSAGE_STATUS,
+  MESSAGE_TYPE,
+  USER_STATUS,
+  SEPARATOR,
+} = FirebaseConstants;
 
-export class ChatFirebaseService {
-  private chatStore = useChatStore()
-  private userStore = useUserStore()
-  
-  // 监听会话列表
-  listenToConversations() {
-    const userId = this.userStore.currentUser?.id
-    if (!userId) return
-    
-    const conversationsRef = ref(database, firebasePaths.conversations)
-    onValue(conversationsRef, (snapshot) => {
-      const conversations: Conversation[] = []
-      
-      snapshot.forEach((child) => {
-        const conv = child.val()
-        if (conv.users.includes(userId)) {
-          conversations.push({
-            id: child.key!,
-            ...conv,
-          })
-        }
-      })
-      
-      this.chatStore.updateConversations(conversations)
-    })
+export class ChatService {
+  private static instance: ChatService;
+  private currentUserId: string | null = null;
+  private conversationObservers: { [key: string]: () => void } = {};
+  private deleteMessageObserver: (() => void) | null = null;
+  private lastUpdateTimestamp: number = 0;
+  private readonly minimumUpdateInterval: number = 500; // 500ms
+  private readonly pageSize: number = 20;
+
+  private constructor() {}
+
+  public static getInstance(): ChatService {
+    if (!ChatService.instance) {
+      ChatService.instance = new ChatService();
+    }
+    return ChatService.instance;
   }
-  
-  // 监听会话消息
-  listenToMessages(conversationId: string) {
-    const messagesRef = ref(
+
+  // 设置当前用户ID
+  public setCurrentUserId(userId: string) {
+    this.currentUserId = userId;
+  }
+
+  // 监听会话列表变化
+  public observeConversations(callback: (data: any) => void) {
+    if (!this.currentUserId) return;
+
+    const userConversationsRef = ref(
       database,
-      `${firebasePaths.conversations}/${conversationId}/BQConversationMessage`
-    )
-    
-    onValue(messagesRef, (snapshot) => {
-      const messages: Message[] = []
-      
-      snapshot.forEach((child) => {
-        messages.push({
-          id: child.key!,
-          ...child.val(),
-        })
-      })
-      
-      this.chatStore.updateMessages(conversationId, messages)
-    })
+      `${CONVERSATION_USER}/${this.currentUserId}/${FIELDS.OBSERVE_CONVERSATIONS}`
+    );
+
+    const observer = onValue(userConversationsRef, (snapshot) => {
+      if (snapshot.exists()) {
+        callback(snapshot.val());
+      }
+    });
+
+    // 保存清理函数
+    this.conversationObservers[this.currentUserId] = () =>
+      off(userConversationsRef);
   }
-  
+
+  // 监听消息删除
+  public observeDeleteMessages(callback: (data: any) => void) {
+    if (!this.currentUserId) return;
+
+    const deleteMessagesRef = ref(
+      database,
+      `${CONVERSATION_USER}/${this.currentUserId}/${FIELDS.DELETE_MESSAGES}`
+    );
+
+    const observer = onValue(deleteMessagesRef, (snapshot) => {
+      if (snapshot.exists()) {
+        callback(snapshot.val());
+      }
+    });
+
+    this.deleteMessageObserver = () => off(deleteMessagesRef);
+  }
+
+  // 更新用户状态
+  public async updateUserStatus(status: keyof typeof USER_STATUS) {
+    if (!this.currentUserId) return;
+
+    const statusRef = ref(
+      database,
+      `${CONVERSATION_USER}/${this.currentUserId}/${FIELDS.OBSERVE_STATUS}/${FIELDS.CURRENT_STATUS}`
+    );
+
+    await set(statusRef, status);
+  }
+
+  // 更新用户连接状态
+  public async updateUserConnection(destinationId: string) {
+    if (!this.currentUserId) return;
+
+    const connectionRef = ref(
+      database,
+      `${CONVERSATION_USER}/${this.currentUserId}/${FIELDS.CURRENT_CONNECTION}`
+    );
+
+    await set(connectionRef, destinationId);
+  }
+
   // 发送消息
-  async sendMessage(message: Message) {
+  public async sendMessage(
+    conversationId: string,
+    message: {
+      content: string;
+      type: keyof typeof MESSAGE_TYPE;
+      senderId: string;
+    }
+  ) {
     const messageRef = ref(
       database,
-      `${firebasePaths.conversations}/${message.conversationId}/BQConversationMessage/${message.id}`
-    )
-    
-    await set(messageRef, message)
+      `${CONVERSATION}/${conversationId}/${CONVERSATION_MESSAGE}`
+    );
+    const newMessageRef = push(messageRef);
+
+    const timestamp = Date.now();
+    await set(newMessageRef, {
+      ...message,
+      id: newMessageRef.key,
+      status: MESSAGE_STATUS.SENDING,
+      timestamp: timestamp.toString(),
+      realTimestamp: timestamp,
+      deleteAt: timestamp + 24 * 60 * 60 * 1000, // 24小时后删除
+    });
   }
-  
-  // 更新消息状态
-  async updateMessageStatus(conversationId: string, messageId: string, status: string) {
-    const statusRef = ref(
+
+  // 删除消息
+  public async deleteMessage(conversationId: string, messageId: string) {
+    if (!this.currentUserId) return;
+
+    const messageRef = ref(
       database,
-      `${firebasePaths.conversations}/${conversationId}/BQConversationMessage/${messageId}/status`
-    )
-    
-    await set(statusRef, status)
+      `${CONVERSATION}/${conversationId}/${CONVERSATION_MESSAGE}/${messageId}`
+    );
+    await remove(messageRef);
   }
-  
+
   // 创建新会话
-  async createConversation(conversation: Conversation) {
-    const conversationRef = ref(
-      database,
-      `${firebasePaths.conversations}/${conversation.id}`
-    )
-    
-    await set(conversationRef, conversation)
+  public async createConversation(
+    receiverId: string,
+    isGrouped: boolean = false
+  ) {
+    if (!this.currentUserId) return null;
+
+    const users = [this.currentUserId, receiverId].sort().join(SEPARATOR);
+    const conversationRef = ref(database, `${CONVERSATION}`);
+    const newConversationRef = push(conversationRef);
+
+    await set(newConversationRef, {
+      id: newConversationRef.key,
+      creator: this.currentUserId,
+      isGrouped,
+      senderId: this.currentUserId,
+      receiveId: receiverId,
+      users,
+    });
+
+    return newConversationRef.key;
   }
-  
-  // 获取用户在线状态
-  async getUserStatus(userId: string) {
-    const statusRef = ref(
+
+  // 更新会话未读数
+  public async updateConversationUnreadCount(
+    conversationId: string,
+    receiverId: string
+  ) {
+    if (!this.currentUserId) return;
+
+    const unreadRef = ref(
       database,
-      `${firebasePaths.users}/${userId}/observeStatus/currentStatus`
-    )
-    
-    const snapshot = await get(statusRef)
-    return snapshot.val() || 'offline'
+      `${CONVERSATION_USER}/${this.currentUserId}/${FIELDS.OBSERVE_CONVERSATIONS}/${receiverId}/${CONVERSATION}`
+    );
+
+    await set(unreadRef, {
+      conversationId,
+      unReadCount: 0,
+    });
   }
-  
-  // 更新用户在线状态
-  async updateUserStatus(status: 'online' | 'offline') {
-    const userId = this.userStore.currentUser?.id
-    if (!userId) return
-    
-    const statusRef = ref(
-      database,
-      `${firebasePaths.users}/${userId}/observeStatus/currentStatus`
-    )
-    
-    await set(statusRef, status)
+
+  // 清理所有监听器
+  public cleanup() {
+    // 清理会话监听器
+    Object.values(this.conversationObservers).forEach((cleanup) => cleanup());
+    this.conversationObservers = {};
+
+    // 清理删除消息监听器
+    if (this.deleteMessageObserver) {
+      this.deleteMessageObserver();
+      this.deleteMessageObserver = null;
+    }
   }
-  
-  // 获取会话未读消息数
-  async getUnreadCount(conversationId: string) {
-    const messagesRef = ref(
-      database,
-      `${firebasePaths.conversations}/${conversationId}/BQConversationMessage`
-    )
-    
-    const unreadQuery = query(
-      messagesRef,
-      orderByChild('status'),
-      equalTo('received')
-    )
-    
-    const snapshot = await get(unreadQuery)
-    return snapshot.size
-  }
-} 
+}
+
+// 导出单例实例
+export const chatService = ChatService.getInstance();

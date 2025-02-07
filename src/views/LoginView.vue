@@ -3,54 +3,59 @@
     <div class="login-content">
       <div class="login-header">
         <app-logo :size="80" />
-        <h1 class="title">Web Chat</h1>
+        <h1 class="title">{{ t("login.title") }}</h1>
       </div>
 
-      <form class="login-form" @submit.prevent="handleLogin">
+      <el-form
+        ref="formRef"
+        :model="formData"
+        :rules="rules"
+        class="login-form"
+        @submit.prevent="handleLogin"
+      >
         <div class="form-group phone-group">
           <el-select
-            v-model="selectedCountry"
-            class="country-select"
+            v-model="formData.countryCode"
+            class="area-code-select"
             size="large"
             :teleported="false"
-            popper-class="country-select-dropdown"
+            popper-class="area-code-dropdown"
           >
-            <template #prefix>
-              <span class="selected-flag">{{ selectedCountry.flag }}</span>
-            </template>
             <el-option
               v-for="country in countries"
               :key="country.code"
               :label="country.dialCode"
-              :value="country"
+              :value="country.dialCode"
             >
-              <span class="country-option">
+              <div class="country-option">
                 <span class="flag">{{ country.flag }}</span>
-                <span class="dial-code">{{ country.dialCode }}</span>
-                <span class="country-name">{{ country.name }}</span>
-              </span>
+                <span class="name">{{ country.name }}</span>
+                <span class="code">{{ country.dialCode }}</span>
+              </div>
             </el-option>
           </el-select>
 
-          <el-input
-            v-model="phone"
-            placeholder="请输入手机号"
-            :prefix-icon="Iphone"
-            size="large"
-            class="phone-input"
-          />
+          <el-form-item prop="phone" class="phone-input-item">
+            <el-input
+              v-model="formData.phone"
+              :placeholder="t('login.phonePlaceholder')"
+              :prefix-icon="Iphone"
+              size="large"
+              class="phone-input"
+            />
+          </el-form-item>
         </div>
 
-        <div class="form-group">
+        <el-form-item prop="password">
           <el-input
-            v-model="password"
+            v-model="formData.password"
             :type="showPassword ? 'text' : 'password'"
-            placeholder="密码"
+            :placeholder="t('login.passwordPlaceholder')"
             :prefix-icon="Lock"
             size="large"
           >
             <template #suffix>
-              <el-icon 
+              <el-icon
                 class="password-toggle"
                 @click="showPassword = !showPassword"
               >
@@ -59,11 +64,15 @@
               </el-icon>
             </template>
           </el-input>
-        </div>
+        </el-form-item>
 
         <div class="form-options">
-          <el-checkbox v-model="rememberMe">记住我</el-checkbox>
-          <el-link type="primary" :underline="false">忘记密码？</el-link>
+          <el-checkbox v-model="formData.rememberMe">{{
+            t("login.rememberMe")
+          }}</el-checkbox>
+          <el-link type="primary" :underline="false">{{
+            t("login.forgotPassword")
+          }}</el-link>
         </div>
 
         <el-button
@@ -73,60 +82,127 @@
           native-type="submit"
           :loading="loading"
         >
-          登录
+          {{ t("login.submit") }}
         </el-button>
 
         <div class="register-link">
-          还没有账号？<el-link type="primary" :underline="false">立即注册</el-link>
+          {{ t("login.noAccount")
+          }}<el-link type="primary" :underline="false">{{
+            t("login.register")
+          }}</el-link>
         </div>
-      </form>
+      </el-form>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { useRouter } from 'vue-router'
-import { User, Lock, View, Hide, Iphone } from '@element-plus/icons-vue'
-import { ElMessage } from 'element-plus'
-import AppLogo from '@/components/AppLogo.vue'
-import { countries, type Country } from '@/constants/countries'
+import { ref, reactive, computed } from "vue";
+import { useRouter } from "vue-router";
+import { FormInstance, FormRules } from "element-plus";
+import {
+  User,
+  Lock,
+  View,
+  Hide,
+  Iphone,
+  ArrowDown,
+} from "@element-plus/icons-vue";
+import { ElMessage } from "element-plus";
+import { useUserStore } from "@/store/user";
+import AppLogo from "@/components/AppLogo.vue";
+import { countries, type Country } from "@/constants/countries";
+import { useI18n } from "vue-i18n";
 
-const router = useRouter()
-const phone = ref('')
-const password = ref('')
-const showPassword = ref(false)
-const rememberMe = ref(false)
-const loading = ref(false)
-const selectedCountry = ref<Country>(countries[5]) // 默认选中中国
+const router = useRouter();
+const userStore = useUserStore();
+const formRef = ref<FormInstance>();
+const showPassword = ref(false);
+const loading = ref(false);
+const { t } = useI18n();
 
+// 表单数据
+const formData = reactive({
+  countryCode: countries[0].dialCode,
+  phone: "",
+  password: "",
+  rememberMe: false,
+});
+
+// 当前选中的国家对象
+const selectedCountry = computed(() => {
+  return (
+    countries.find((c) => c.dialCode === formData.countryCode) || countries[0]
+  );
+});
+
+// 手机号验证函数
+const validatePhone = (rule: any, value: string, callback: Function) => {
+  if (!value) {
+    callback(new Error("请输入手机号"));
+    return;
+  }
+
+  const pattern = new RegExp(selectedCountry.value.pattern);
+  if (!pattern.test(value)) {
+    callback(new Error(`请输入正确的${selectedCountry.value.name}手机号`));
+    return;
+  }
+
+  callback();
+};
+
+// 表单验证规则
+const rules = reactive<FormRules>({
+  phone: [
+    { required: true, message: "请输入手机号", trigger: "blur" },
+    { validator: validatePhone, trigger: "blur" },
+  ],
+  password: [
+    { required: true, message: "请输入密码", trigger: "blur" },
+    { min: 6, message: "密码长度不能小于6位", trigger: "blur" },
+  ],
+});
+
+// 登录处理
 const handleLogin = async () => {
-  if (!phone.value || !password.value) {
-    ElMessage.warning('请输入手机号和密码')
-    return
-  }
+  if (!formRef.value) return;
 
-  // 简单的手机号格式验证
-  const phoneRegex = /^\d{11}$/
-  if (!phoneRegex.test(phone.value)) {
-    ElMessage.warning('请输入正确的手机号')
-    return
-  }
-
-  loading.value = true
   try {
-    // TODO: 调用登录API
-    const fullPhone = selectedCountry.value.dialCode + phone.value
-    console.log('登录信息:', { phone: fullPhone, password: password.value })
-    
-    // 模拟登录成功
-    localStorage.setItem('isLoggedIn', 'true')
-    router.push('/')
-  } catch (error) {
-    console.error('登录失败:', error)
-    ElMessage.error('登录失败，请检查手机号和密码')
-  } finally {
-    loading.value = false
+    await formRef.value.validate();
+
+    // 构造登录参数
+    const loginParams = {
+      phone: formData.phone,
+      areaCode: formData.countryCode.replace("+", ""),
+      platform: "web",
+      type: "user",
+      password: formData.password,
+    };
+
+    // 调用登录
+    const success = await userStore.login(loginParams);
+    console.log("success", success);
+    if (success) {
+      if (formData.rememberMe) {
+        localStorage.setItem("lastAreaCode", selectedCountry.value.code);
+      }
+      router.push("/");
+    }
+  } catch (error: any) {
+    console.error("登录失败:", error);
+    ElMessage.error(
+      error.response?.data?.message || "登录失败，请检查手机号和密码"
+    );
+  }
+};
+
+// 初始化时尝试恢复上次使用的区号
+const lastAreaCode = localStorage.getItem("lastAreaCode");
+if (lastAreaCode) {
+  const lastCountry = countries.find((c) => c.code === lastAreaCode);
+  if (lastCountry) {
+    formData.countryCode = lastCountry.dialCode;
   }
 }
 </script>
@@ -168,47 +244,61 @@ const handleLogin = async () => {
 
         &.phone-group {
           display: flex;
-          gap: 12px;
+          gap: 16px;
 
-          .country-select {
-            width: 100px;
+          .area-code-select {
+            width: 140px;
             flex-shrink: 0;
 
             :deep(.el-input) {
-              --el-input-height: 48px;
+              --el-input-height: 40px;
 
               .el-input__wrapper {
+                padding: 0 12px;
+                background-color: var(--el-fill-color-blank);
+                box-shadow: 0 0 0 1px var(--el-border-color) inset;
                 border-radius: 8px;
-                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05) !important;
-                padding: 0 8px;
+
+                &:hover {
+                  box-shadow: 0 0 0 1px var(--el-border-color-hover) inset;
+                }
               }
 
               .el-input__inner {
-                display: none;
+                text-align: left;
+                font-size: 14px;
+                color: var(--el-text-color-primary);
+                padding-right: 25px;
               }
 
-              .el-input__prefix {
-                margin-right: 0;
+              .el-input__suffix {
+                font-size: 12px;
+                color: var(--el-text-color-secondary);
               }
-            }
-
-            .selected-flag {
-              font-size: 20px;
-              margin-right: 4px;
             }
           }
 
-          .phone-input {
+          .phone-input-item {
             flex: 1;
+            margin-bottom: 0;
+
+            :deep(.el-input__wrapper) {
+              border-radius: 8px;
+            }
           }
         }
 
         :deep(.el-input) {
-          --el-input-height: 48px;
-          
+          --el-input-height: 40px;
+
           .el-input__wrapper {
+            background-color: var(--el-fill-color-blank);
+            box-shadow: 0 0 0 1px var(--el-border-color) inset;
             border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05) !important;
+
+            &:hover {
+              box-shadow: 0 0 0 1px var(--el-border-color-hover) inset;
+            }
           }
 
           .el-input__prefix-inner {
@@ -218,7 +308,7 @@ const handleLogin = async () => {
 
         .password-toggle {
           cursor: pointer;
-          font-size: 18px;
+          font-size: 16px;
           color: var(--el-text-color-secondary);
 
           &:hover {
@@ -231,14 +321,13 @@ const handleLogin = async () => {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 24px;
+        margin: 16px 0 24px;
       }
 
       .login-button {
         width: 100%;
-        height: 48px;
+        height: 40px;
         font-size: 16px;
-        border-radius: 8px;
         margin-bottom: 24px;
       }
 
@@ -250,31 +339,38 @@ const handleLogin = async () => {
   }
 }
 
-:deep(.country-option) {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+// 区号下拉框样式
+:deep(.area-code-dropdown) {
+  .country-option {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
 
-  .flag {
-    font-size: 20px;
+    .flag {
+      margin-right: 8px;
+      font-size: 20px;
+    }
+
+    .name {
+      flex: 1;
+      font-size: 14px;
+      color: var(--el-text-color-regular);
+    }
+
+    .code {
+      font-size: 14px;
+      color: var(--el-text-color-secondary);
+      margin-left: 8px;
+    }
   }
 
-  .dial-code {
-    color: var(--el-text-color-regular);
-    width: 50px;
-  }
-
-  .country-name {
-    color: var(--el-text-color-secondary);
-    font-size: 13px;
-  }
-}
-
-:deep(.country-select-dropdown) {
-  .el-select-dropdown__item {
-    height: 40px;
-    line-height: 40px;
-    padding: 0 12px;
+  .el-select-dropdown__item.selected {
+    .country-option {
+      .name,
+      .code {
+        color: var(--el-color-primary);
+      }
+    }
   }
 }
 
@@ -288,4 +384,4 @@ const handleLogin = async () => {
     transform: translateY(0);
   }
 }
-</style> 
+</style>

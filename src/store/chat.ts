@@ -1,142 +1,213 @@
-import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
-import type { Message, Conversation } from '@/types'
-import { ChatFirebaseService } from '@/services/firebase/chat'
-import { useUserStore } from './user'
-import { generateUUID } from '@/utils'
+import { defineStore } from "pinia";
+import { ref, computed } from "vue";
+import { chatService } from "@/services/firebase/chat";
+import { chatDB } from "@/services/db";
+import { useUserStore } from "./user";
+import type { Message, Conversation } from "@/types/chat";
 
-export const useChatStore = defineStore('chat', () => {
-  const userStore = useUserStore()
-  const firebase = new ChatFirebaseService()
-  
-  // 状态
-  const conversations = ref<Record<string, Conversation>>({})
-  const messages = ref<Record<string, Record<string, Message>>>({})
-  const currentConversationId = ref<string | null>(null)
-  const loadingMessages = ref(false)
-  
+export const useChatStore = defineStore("chat", () => {
+  const userStore = useUserStore();
+  const currentConversationId = ref<string | null>(null);
+  const conversations = ref<Conversation[]>([]);
+  const messages = ref<{ [key: string]: Message[] }>({});
+  const loading = ref(false);
+
   // 计算属性
-  const currentConversation = computed(() => 
-    currentConversationId.value ? conversations.value[currentConversationId.value] : null
-  )
-  
-  const currentMessages = computed(() => {
-    if (!currentConversationId.value) return []
-    
-    const conversationMessages = messages.value[currentConversationId.value] || {}
-    return Object.values(conversationMessages).sort(
-      (a, b) => Number(a.timestamp) - Number(b.timestamp)
-    )
-  })
-  
-  const sortedConversations = computed(() => 
-    Object.values(conversations.value).sort(
-      (a, b) => {
-        const aLastMessage = messages.value[a.id]?.[Object.keys(messages.value[a.id] || {}).pop() || '']
-        const bLastMessage = messages.value[b.id]?.[Object.keys(messages.value[b.id] || {}).pop() || '']
-        
-        if (!aLastMessage) return 1
-        if (!bLastMessage) return -1
-        
-        return Number(bLastMessage.timestamp) - Number(aLastMessage.timestamp)
-      }
-    )
-  )
-  
-  // 方法
-  const updateConversations = (newConversations: Conversation[]) => {
-    newConversations.forEach(conv => {
-      conversations.value[conv.id] = conv
-    })
-  }
-  
-  const updateMessages = (conversationId: string, newMessages: Message[]) => {
-    if (!messages.value[conversationId]) {
-      messages.value[conversationId] = {}
-    }
-    
-    newMessages.forEach(msg => {
-      messages.value[conversationId][msg.id] = msg
-    })
-  }
-  
-  const setCurrentConversation = (conversationId: string | null) => {
-    currentConversationId.value = conversationId
-    
-    if (conversationId) {
-      firebase.listenToMessages(conversationId)
-    }
-  }
-  
-  const sendMessage = async (content: string, type: string = 'text') => {
-    if (!currentConversationId.value || !userStore.currentUser) return
-    
-    const message: Message = {
-      id: generateUUID(),
-      conversationId: currentConversationId.value,
-      content,
-      type,
-      status: 'sending',
-      senderId: userStore.currentUser.id,
-      timestamp: Date.now().toString(),
-      deleteAt: Date.now() + (7 * 24 * 60 * 60 * 1000), // 7天后删除
-    }
-    
-    // 更新本地状态
-    if (!messages.value[message.conversationId]) {
-      messages.value[message.conversationId] = {}
-    }
-    messages.value[message.conversationId][message.id] = message
-    
-    try {
-      // 发送到Firebase
-      await firebase.sendMessage(message)
-      message.status = 'sent'
-    } catch (error) {
-      console.error('Failed to send message:', error)
-      message.status = 'failed'
-    }
-    
-    // 更新消息状态
-    messages.value[message.conversationId][message.id] = message
-  }
-  
-  const createConversation = async (targetUserId: string): Promise<Conversation> => {
-    if (!userStore.currentUser) throw new Error('User not logged in')
-    
-    const conversation: Conversation = {
-      id: generateUUID(),
-      creator: userStore.currentUser.id,
-      isGrouped: false,
-      receiveId: targetUserId,
-      senderId: userStore.currentUser.id,
-      users: `${userStore.currentUser.id}#$${targetUserId}`,
-    }
-    
-    await firebase.createConversation(conversation)
-    conversations.value[conversation.id] = conversation
-    
-    return conversation
-  }
-  
+  const currentConversation = computed(() =>
+    conversations.value.find((c) => c.id === currentConversationId.value)
+  );
+
+  const currentMessages = computed(
+    () => messages.value[currentConversationId.value || ""] || []
+  );
+
+  const sortedConversations = computed(() => {
+    return [...conversations.value].sort((a, b) => {
+      const timeA = a.lastMessage?.realTimestamp || 0;
+      const timeB = b.lastMessage?.realTimestamp || 0;
+      return timeB - timeA;
+    });
+  });
+
   // 初始化
-  const initialize = () => {
-    firebase.listenToConversations()
-  }
-  
+  const initialize = async () => {
+    if (!userStore.currentUser?.id) return;
+
+    chatService.setCurrentUserId(userStore.currentUser.id);
+    chatService.observeConversations(handleConversationsUpdate);
+    chatService.observeDeleteMessages(handleMessagesDelete);
+    await chatService.updateUserStatus("online");
+  };
+
+  // 会话更新处理
+  const handleConversationsUpdate = async (data: any) => {
+    const conversationsList: Conversation[] = [];
+    for (const [userId, userConversations] of Object.entries(data)) {
+      const conversation = (userConversations as any).conversation;
+      if (conversation) {
+        conversationsList.push({
+          ...conversation,
+          unReadCount: (userConversations as any).unReadCount || 0,
+        });
+        // 保存到本地数据库
+        await chatDB.saveConversation(conversation);
+      }
+    }
+    conversations.value = conversationsList;
+  };
+
+  // 消息删除处理
+  const handleMessagesDelete = async (data: any) => {
+    for (const [conversationId, messageIds] of Object.entries(data)) {
+      if (Array.isArray(messageIds)) {
+        for (const messageId of messageIds) {
+          await chatDB.deleteMessage(messageId);
+          if (messages.value[conversationId]) {
+            messages.value[conversationId] = messages.value[
+              conversationId
+            ].filter((m) => m.id !== messageId);
+          }
+        }
+      }
+    }
+  };
+
+  // 设置当前会话
+  const setCurrentConversation = async (conversation: Conversation) => {
+    currentConversationId.value = conversation.id;
+    // 加载消息
+    const storedMessages = await chatDB.getMessagesByConversation(
+      conversation.id
+    );
+    messages.value[conversation.id] = storedMessages;
+    // 更新未读数
+    if (conversation.unReadCount > 0) {
+      await chatService.updateConversationUnreadCount(
+        conversation.id,
+        conversation.receiveId
+      );
+    }
+  };
+
+  // 发送消息
+  const sendMessage = async (params: {
+    content: string;
+    type: string;
+    conversationId: string;
+  }) => {
+    if (!userStore.currentUser?.id) return;
+
+    await chatService.sendMessage(params.conversationId, {
+      content: params.content,
+      type: params.type,
+      senderId: userStore.currentUser.id,
+    });
+  };
+
+  // 发送图片
+  const sendImage = async (file: File) => {
+    if (!currentConversationId.value || !userStore.currentUser?.id) return;
+
+    loading.value = true;
+    try {
+      // TODO: 实现图片上传
+      const imageUrl = "";
+      await sendMessage({
+        content: imageUrl,
+        type: "image",
+        conversationId: currentConversationId.value,
+      });
+    } finally {
+      loading.value = false;
+    }
+  };
+
+  // 发送文件
+  const sendFile = async (file: File) => {
+    if (!currentConversationId.value || !userStore.currentUser?.id) return;
+
+    loading.value = true;
+    try {
+      // TODO: 实现文件上传
+      const fileUrl = "";
+      await sendMessage({
+        content: fileUrl,
+        type: "file",
+        conversationId: currentConversationId.value,
+      });
+    } finally {
+      loading.value = false;
+    }
+  };
+
+  // 创建或获取会话
+  const getOrCreateConversation = async (userId: string) => {
+    if (!userStore.currentUser?.id) return null;
+
+    // 先查找现有会话
+    const existingConversation = conversations.value.find(
+      (c) =>
+        c.users.includes(userId) && c.users.includes(userStore.currentUser!.id)
+    );
+
+    if (existingConversation) {
+      return existingConversation;
+    }
+
+    // 创建新会话
+    const conversationId = await chatService.createConversation(userId);
+    if (!conversationId) return null;
+
+    // 等待会话创建完成
+    return new Promise<Conversation | null>((resolve) => {
+      const unsubscribe = chatService.observeConversations((data) => {
+        const newConversation = Object.values(data).find(
+          (c: any) => c.conversation?.id === conversationId
+        );
+        if (newConversation) {
+          unsubscribe();
+          resolve(newConversation.conversation);
+        }
+      });
+
+      // 5秒后超时
+      setTimeout(() => {
+        unsubscribe();
+        resolve(null);
+      }, 5000);
+    });
+  };
+
+  // 清空消息
+  const clearMessages = async (conversationId: string) => {
+    if (!messages.value[conversationId]) return;
+
+    for (const message of messages.value[conversationId]) {
+      await chatDB.deleteMessage(message.id);
+    }
+    messages.value[conversationId] = [];
+  };
+
+  // 清理
+  const cleanup = () => {
+    chatService.cleanup();
+    currentConversationId.value = null;
+    conversations.value = [];
+    messages.value = {};
+  };
+
   return {
-    conversations,
-    messages,
-    currentConversationId,
     currentConversation,
     currentMessages,
     sortedConversations,
-    loadingMessages,
-    updateConversations,
-    updateMessages,
+    loading,
+    initialize,
     setCurrentConversation,
     sendMessage,
-    createConversation,
-    initialize,
-  }
-}) 
+    sendImage,
+    sendFile,
+    getOrCreateConversation,
+    clearMessages,
+    cleanup,
+  };
+});
