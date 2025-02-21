@@ -33,7 +33,7 @@
 
     <!-- 右侧详情区域 -->
     <div class="detail-container">
-      <template v-if="activeNav === 'contacts'">
+      <div v-show="activeNav === 'contacts'">
         <ContactDetail
           v-if="detailType === 'contact' && selectedContact"
           :contact="selectedContact"
@@ -44,12 +44,16 @@
           :group="currentGroup"
           @update="handleGroupUpdate"
         />
-      </template>
+      </div>
       <ChatArea
-        v-else-if="activeNav === 'chat' && chatStore.currentConversation"
+        v-show="activeNav === 'chat'"
+        v-if="chatStore.currentConversation"
         :conversation-id="chatStore.currentConversation.id"
       />
-      <div v-else class="no-chat">
+      <div
+        v-show="activeNav === 'chat' && !chatStore.currentConversation"
+        class="no-chat"
+      >
         <el-empty :description="t('chat.selectConversation')" />
       </div>
     </div>

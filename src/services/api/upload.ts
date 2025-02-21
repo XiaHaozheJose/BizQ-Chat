@@ -10,7 +10,8 @@ export const uploadFiles = async (files: File[]): Promise<string[]> => {
     headers: {
       "Content-Type": "multipart/form-data",
     },
-    baseURL: import.meta.env.VITE_FILE_BASE_URL,
+    baseURL:
+      import.meta.env.VITE_FILE_BASE_URL ?? "http://dev.bizq.com/file/api/v1",
   });
 
   // 返回文件的url数组
@@ -27,7 +28,8 @@ export const uploadSingleFile = async (file: File): Promise<string> => {
     headers: {
       "Content-Type": "multipart/form-data",
     },
-    baseURL: import.meta.env.VITE_FILE_BASE_URL,
+    baseURL:
+      import.meta.env.VITE_FILE_BASE_URL ?? "http://dev.bizq.com/file/api/v1",
   });
 
   return response.data.uri;

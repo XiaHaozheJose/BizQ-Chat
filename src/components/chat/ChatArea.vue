@@ -87,11 +87,9 @@ import { ref, computed, onMounted, watch, nextTick } from "vue";
 import { useI18n } from "vue-i18n";
 import { useChatStore } from "@/store/chat";
 import { useUserStore } from "@/store/user";
-import type { Message, MessageType } from "@/types";
+import type { Message } from "@/types";
 import MessageFactory from "./messages/MessageFactory.vue";
 import { Close, Loading } from "@element-plus/icons-vue";
-import { useDebounceFn } from "@vueuse/core";
-import { useAudioStore } from "@/store/audio";
 import ChatInput from "./ChatInput.vue";
 import { ChatMessage } from "@/types/chat";
 
@@ -102,11 +100,7 @@ const props = defineProps<{
 const { t } = useI18n();
 const chatStore = useChatStore();
 const userStore = useUserStore();
-const audioStore = useAudioStore();
-const messageText = ref("");
 const messageListRef = ref<HTMLElement>();
-
-const messageType = "text" as MessageType;
 
 // 计算属性
 const currentUserId = computed(() => userStore.currentUser?.id || "");
@@ -218,7 +212,6 @@ watch(
 
 // 添加加载更多相关的状态
 const loadingMore = ref(false);
-const scrollHeight = ref(0);
 
 // 计算是否有更多消息
 const hasMore = computed(
@@ -268,9 +261,6 @@ const handleScroll = async (e: Event) => {
     }
   }
 };
-
-// 添加防抖，避免频繁触发
-const debouncedHandleScroll = useDebounceFn(handleScroll, 200);
 </script>
 
 <style lang="scss" scoped>
