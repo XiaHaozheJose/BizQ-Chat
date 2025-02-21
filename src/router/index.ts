@@ -5,21 +5,10 @@ import {
 } from "vue-router";
 import type { RouteRecordRaw } from "vue-router";
 import { useUserStore } from "@/store/user";
+import { homeView } from "@/views/home";
+import { loginView } from "@/views/login";
 
-const routes: RouteRecordRaw[] = [
-  {
-    path: "/",
-    name: "home",
-    component: () => import("@/views/HomeView.vue"),
-    meta: { requiresAuth: true },
-  },
-  {
-    path: "/login",
-    name: "login",
-    component: () => import("@/views/LoginView.vue"),
-    meta: { requiresAuth: false },
-  },
-];
+const routes: RouteRecordRaw[] = [homeView, loginView];
 
 // 检测是否在Electron环境中
 const isElectron = window.electronAPI !== undefined;

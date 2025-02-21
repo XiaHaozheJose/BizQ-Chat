@@ -57,9 +57,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, nextTick, watch } from "vue";
+import { ref, onMounted, nextTick, watch } from "vue";
 import { ElMessage } from "element-plus";
-import { useUserStore } from "@/store/user";
 import { useContactStore } from "@/store/contact";
 import { useChatStore } from "@/store/chat";
 import { type Contact, type ContactGroup } from "@/types";
@@ -74,7 +73,6 @@ import { useRoute } from "vue-router";
 import GroupDetail from "@/components/contact/GroupDetail.vue";
 import ChatArea from "@/components/chat/ChatArea.vue";
 
-const userStore = useUserStore();
 const contactStore = useContactStore();
 const chatStore = useChatStore();
 const { t } = useI18n();
