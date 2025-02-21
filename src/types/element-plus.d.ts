@@ -39,14 +39,30 @@ declare module "@element-plus/icons-vue" {
   export const Hide: Component;
   export const Iphone: Component;
   export const ArrowDown: Component;
+  export const ArrowLeft: Component;
   export const Search: Component;
   export const More: Component;
   export const Close: Component;
   export const Picture: Component;
   export const Document: Component;
+  export const ChatRound: Component;
   export const ChatDotRound: Component;
   export const Warning: Component;
   export const Folder: Component;
+  export const Plus: Component;
+  export const Loading: Component;
+  export const Microphone: Component;
+  export const VideoCamera: Component;
+  export const Phone: Component;
+  export const Setting: Component;
+  export const SwitchButton: Component;
+  export const ArrowRight: Component;
+  export const UserFilled: Component;
+  export const MapLocation: Component;
+  export const Location: Component;
+  export const Check: Component;
+  export const VideoPlay: Component;
+  export const VideoPause: Component;
 }
 
 declare module "element-plus/dist/locale/zh-cn.mjs" {

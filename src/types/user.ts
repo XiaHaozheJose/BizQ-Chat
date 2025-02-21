@@ -4,6 +4,11 @@ export enum UserType {
   Shop = "shop",
 }
 
+export enum UserStatus {
+  ok = "ok",
+  normal = "normal",
+}
+
 // 商家类型枚举
 export enum BusinessType {
   Retailer = "Retailer",
@@ -35,13 +40,13 @@ export interface BaseUser {
   provinceId?: string;
   remark?: string;
   note?: string;
-  isGrouped: boolean;
+  followedCatIds?: string[];
+  status?: UserStatus;
 }
 
 // 普通用户
 export interface User extends BaseUser {
   operatorType: UserType.User;
-  shops?: Business[];
   myshops?: Business[];
   mood?: string;
   description?: string;
@@ -79,11 +84,28 @@ export interface Business extends BaseUser {
   featured?: boolean;
   tags?: string[];
   coverImage?: string;
-  gallery?: string[];
+  pictures?: string[];
   location?: {
-    latitude: number;
-    longitude: number;
+    lat: number;
+    long: number;
   };
+  owner?: User;
+  country?: Area;
+  province?: Area;
+  onlyPayManually?: boolean;
+  allowSocial?: boolean;
+  shopScore?: number;
+  transportScore?: number;
+  score?: number;
+  subDomain?: string;
+}
+
+export interface Area {
+  id: string;
+  name: string;
+  isDeleted: boolean;
+  type: string;
+  areaCode: string;
 }
 
 // 行业内容

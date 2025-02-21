@@ -1,4 +1,5 @@
 import { openDB, DBSchema, IDBPDatabase } from "idb";
+import { Message, Conversation } from "@/types";
 
 interface ChatDBSchema extends DBSchema {
   conversation_users: {
@@ -6,53 +7,23 @@ interface ChatDBSchema extends DBSchema {
     value: {
       id: string;
       name: string;
-      isShop: boolean;
-      isGrouped: boolean;
-      headImg?: string;
-      logo?: string;
-      avatar?: string;
+      avatar: string;
+      status: string;
+      lastSeen?: number;
+      remark?: string;
     };
     indexes: { "by-name": string };
   };
 
   conversations: {
     key: string;
-    value: {
-      id: string;
-      isGrouped: boolean;
-      receiveId: string;
-      diffusionAlia: string;
-      timestamp: string;
-      unReadCount: number;
-      isDiffusion: boolean;
-      isSpam: boolean;
-      creator: string;
-      updater: string;
-      users: string;
-    };
+    value: Conversation;
     indexes: { "by-users": string };
   };
 
   messages: {
     key: string;
-    value: {
-      id: string;
-      conversationId: string;
-      content: string;
-      filePath: string;
-      recorderTime: number;
-      status: string;
-      type: string;
-      senderId: string;
-      referenceId: string;
-      referenceType: string;
-      referenceSender: string;
-      referenceSenderId: string;
-      referenceContent: string;
-      timestamp: string;
-      realTimestamp: number;
-      deleteAt: number;
-    };
+    value: Message;
     indexes: { "by-conversation": string };
   };
 
@@ -89,19 +60,35 @@ interface ChatDBSchema extends DBSchema {
   };
 }
 
-class ChatDatabase {
-  private static instance: ChatDatabase;
+export class ChatDatabase {
+  private static instances: { [userId: string]: ChatDatabase } = {};
   private db: IDBPDatabase<ChatDBSchema> | null = null;
-  private readonly DB_NAME = "chat_db";
   private readonly DB_VERSION = 1;
+  private readonly DB_NAME: string;
 
-  private constructor() {}
+  private constructor(private readonly userId: string) {
+    this.DB_NAME = `chat_db_${userId}`;
+  }
 
-  public static getInstance(): ChatDatabase {
-    if (!ChatDatabase.instance) {
-      ChatDatabase.instance = new ChatDatabase();
+  public static getInstance(userId: string): ChatDatabase {
+    if (!userId) {
+      throw new Error("User ID is required");
     }
-    return ChatDatabase.instance;
+    if (!this.instances[userId]) {
+      this.instances[userId] = new ChatDatabase(userId);
+    }
+    return this.instances[userId];
+  }
+
+  // 清理实例方法
+  public static clearInstance(userId: string): void {
+    if (this.instances[userId]) {
+      const instance = this.instances[userId];
+      if (instance.db) {
+        instance.db.close();
+      }
+      delete this.instances[userId];
+    }
   }
 
   public async initialize(): Promise<void> {
@@ -166,49 +153,71 @@ class ChatDatabase {
   }
 
   // 会话相关操作
-  async saveConversation(
-    conversation: ChatDBSchema["conversations"]["value"]
-  ): Promise<void> {
+  async saveConversation(conversation: Conversation): Promise<void> {
     if (!this.db) throw new Error("Database not initialized");
     await this.db.put("conversations", conversation);
   }
 
-  async getConversation(
-    id: string
-  ): Promise<ChatDBSchema["conversations"]["value"] | undefined> {
+  async getConversation(id: string): Promise<Conversation | undefined> {
     if (!this.db) throw new Error("Database not initialized");
     return await this.db.get("conversations", id);
   }
 
-  async getConversationsByUsers(
-    users: string
-  ): Promise<ChatDBSchema["conversations"]["value"][]> {
+  async getAllConversations(): Promise<Conversation[]> {
+    if (!this.db) throw new Error("Database not initialized");
+    return await this.db.getAll("conversations");
+  }
+
+  async getConversationsByUsers(users: string): Promise<Conversation[]> {
     if (!this.db) throw new Error("Database not initialized");
     const index = this.db.transaction("conversations").store.index("by-users");
     return await index.getAll(users);
   }
 
   // 消息相关操作
-  async saveMessage(message: ChatDBSchema["messages"]["value"]): Promise<void> {
+  async saveMessage(message: Message): Promise<void> {
     if (!this.db) throw new Error("Database not initialized");
     await this.db.put("messages", message);
   }
 
-  async getMessage(
-    id: string
-  ): Promise<ChatDBSchema["messages"]["value"] | undefined> {
+  async getMessage(id: string): Promise<Message | undefined> {
     if (!this.db) throw new Error("Database not initialized");
+    if (!id) throw new Error("Message ID is required");
     return await this.db.get("messages", id);
   }
 
   async getMessagesByConversation(
-    conversationId: string
-  ): Promise<ChatDBSchema["messages"]["value"][]> {
+    conversationId: string,
+    limit?: number,
+    beforeTimestamp?: string
+  ): Promise<Message[]> {
     if (!this.db) throw new Error("Database not initialized");
-    const index = this.db
-      .transaction("messages")
-      .store.index("by-conversation");
-    return await index.getAll(conversationId);
+
+    const tx = this.db.transaction("messages", "readonly");
+    const index = tx.store.index("by-conversation");
+    let cursor = await index.openCursor(conversationId);
+
+    const messages: Message[] = [];
+    let count = 0;
+
+    while (cursor) {
+      if (beforeTimestamp && cursor.value.timestamp >= beforeTimestamp) {
+        cursor = await cursor.continue();
+        continue;
+      }
+
+      messages.push(cursor.value);
+      count++;
+
+      if (limit && count >= limit) {
+        break;
+      }
+
+      cursor = await cursor.continue();
+    }
+    return messages.sort(
+      (a, b) => parseInt(b.timestamp) - parseInt(a.timestamp)
+    );
   }
 
   // 删除操作
@@ -287,6 +296,15 @@ class ChatDatabase {
     if (!this.db) throw new Error("Database not initialized");
     await this.db.delete("contacts", id);
   }
+
+  // 清理数据库
+  public async cleanup(): Promise<void> {
+    if (this.db) {
+      this.db.close();
+      this.db = null;
+    }
+  }
 }
 
-export const chatDB = ChatDatabase.getInstance();
+// 导出获取数据库实例的函数而不是单例
+export const getChatDB = (userId: string) => ChatDatabase.getInstance(userId);

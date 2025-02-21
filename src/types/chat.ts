@@ -1,17 +1,38 @@
+import type { Product } from "./product";
+import { ProductMessageApplyStatus } from "./product";
+
+export interface ChatMessage {
+  content: string;
+  type: MessageType;
+  fileName?: string;
+  fileSize?: number;
+  recorderTime?: number;
+}
+
 // 消息类型
-export interface Message {
+export interface Message extends ChatMessage {
   id: string;
   content: string;
   type: MessageType;
   status: MessageStatus;
   timestamp: string;
   realTimestamp: number;
-  deleteAt: number;
+  deleteAt?: number;
   senderId: string;
   conversationId: string;
+
+  // 文件路径
   filePath?: string;
-  fileName?: string;
-  fileSize?: number;
+
+  // 语音转文字
+  voiceText?: string;
+
+  // 引用消息字段
+  referenceMessageId?: string;
+  referenceMessageType?: MessageType;
+  referenceMessageContent?: string;
+  referenceMessageSender?: string;
+  referenceMessageSenderId?: string;
 }
 
 // 会话类型
@@ -25,6 +46,7 @@ export interface Conversation {
   lastMessage?: Message;
   unReadCount?: number;
   remark?: string;
+  isPinned?: boolean;
 }
 
 // 会话用户类型
@@ -35,10 +57,11 @@ export interface ConversationUser {
   status: string;
   lastSeen?: number;
   remark?: string;
+  isShop?: boolean;
 }
 
 // 在线状态类型
-export enum UserStatus {
+export const enum UserStatus {
   ONLINE = "online",
   OFFLINE = "offline",
   BUSY = "busy",
@@ -55,7 +78,7 @@ export enum MessageStatus {
 }
 
 // 消息类型枚举
-export enum MessageType {
+export const enum MessageType {
   TEXT = "text",
   IMAGE = "image",
   AUDIO = "audio",
@@ -74,4 +97,23 @@ export enum MessageType {
   OUT_OF_STOCK = "outOfStock",
   COUPON = "coupon",
   VOUCHER = "voucher",
+}
+
+export interface ProductMessageContent {
+  shopId: string;
+  productsIds: string[];
+  productList?: Product[];
+  applyStatus?: ProductMessageApplyStatus;
+}
+
+export interface ShipmentMessageContent {
+  number: string;
+  creatorId: string;
+  orderNumbers: string[];
+  id: string;
+  quantity: number;
+  timeStamp: string;
+  status: string;
+  type: "shipment" | "return" | "outOfStock";
+  remark?: string;
 }

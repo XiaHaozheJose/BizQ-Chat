@@ -10,10 +10,23 @@
       @change="$emit('select')"
       @click.stop
     />
-    <el-avatar :size="40" :src="contact.image" :icon="getIcon" />
+    <el-avatar
+      :size="40"
+      :shape="contact.friendType === UserType.Shop ? 'square' : 'circle'"
+      fits="cover"
+      :src="
+        addImageSuffix(
+          contact.friend.headImg ?? contact.friend.logo ?? '',
+          'medium'
+        )
+      "
+      :icon="getIcon"
+    />
     <div class="contact-info">
-      <div class="name">{{ contact.name }}</div>
-      <div v-if="contact.remark" class="remark">{{ contact.remark }}</div>
+      <div class="name">{{ contact.friend.name }}</div>
+      <div v-if="contact.remark" class="remark">
+        {{ contact.remark }}
+      </div>
     </div>
   </div>
 </template>
@@ -21,7 +34,8 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { User, ChatDotRound } from "@element-plus/icons-vue";
-import type { Contact } from "@/types";
+import { UserType, type Contact } from "@/types";
+import { addImageSuffix } from "@/utils";
 
 const props = defineProps<{
   contact: Contact;
@@ -79,6 +93,7 @@ const getIcon = computed(() => {
 
   .el-avatar {
     margin-right: 12px;
+    border: 1px solid var(--el-border-color-lighter);
   }
 
   .contact-info {

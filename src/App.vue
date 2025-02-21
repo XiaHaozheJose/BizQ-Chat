@@ -3,6 +3,7 @@
     <router-view v-slot="{ Component }">
       <component :is="Component" />
     </router-view>
+    <context-menu />
   </el-config-provider>
 </template>
 
@@ -10,23 +11,18 @@
 import { onMounted } from "vue";
 import { useRouter } from "vue-router";
 import zhCn from "element-plus/dist/locale/zh-cn.mjs";
-import { chatDB } from "@/services/db";
 import { useUserStore } from "@/store/user";
+import { useAudioStore } from "@/store/audio";
+import ContextMenu from "@/components/common/ContextMenu.vue";
 
 const router = useRouter();
 const userStore = useUserStore();
+const audioStore = useAudioStore();
 
 onMounted(async () => {
-  // 初始化数据库
-  await chatDB.initialize();
-
-  // 初始化用户状态
-  userStore.initialize();
-
-  // 检查登录状态
-  const isLoggedIn = localStorage.getItem("isLoggedIn") === "true";
-  if (!isLoggedIn) {
-    router.push("/login");
+  // 只初始化音频服务
+  if (userStore.currentUser?.id) {
+    await audioStore.initialize();
   }
 });
 </script>

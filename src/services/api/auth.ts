@@ -1,6 +1,5 @@
 import axios from "axios";
 import type {
-  ApiResponse,
   LoginParams,
   LoginResponse,
   UserInfo,
@@ -21,6 +20,13 @@ const api = axios.create({
 // 请求拦截器
 api.interceptors.request.use(
   (config) => {
+    console.log("[API] Making request:", {
+      url: config.url,
+      method: config.method,
+      baseURL: config.baseURL,
+      timeout: config.timeout,
+    });
+
     const token = localStorage.getItem("token");
     if (token) {
       config.headers.Authorization = token;
@@ -28,14 +34,48 @@ api.interceptors.request.use(
     return config;
   },
   (error) => {
+    console.error("[API] Request interceptor error:", error);
+    return Promise.reject(error);
+  }
+);
+
+// 响应拦截器
+api.interceptors.response.use(
+  (response) => {
+    console.log("[API] Response received:", {
+      status: response.status,
+      url: response.config.url,
+      data: response.data,
+    });
+    return response;
+  },
+  (error) => {
+    console.error("[API] Response error:", {
+      message: error.message,
+      status: error.response?.status,
+      data: error.response?.data,
+      config: {
+        url: error.config?.url,
+        method: error.config?.method,
+        baseURL: error.config?.baseURL,
+        timeout: error.config?.timeout,
+      },
+    });
     return Promise.reject(error);
   }
 );
 
 // 登录
 export const login = async (params: LoginParams): Promise<LoginResponse> => {
-  const response = await api.post("/operators-login", params);
-  return response.data;
+  console.log("[API] Attempting login with params:", params);
+  try {
+    const response = await api.post("/operators-login", params);
+    console.log("[API] Login successful:", response.data);
+    return response.data;
+  } catch (error) {
+    console.error("[API] Login failed:", error);
+    throw error;
+  }
 };
 
 // 获取用户信息

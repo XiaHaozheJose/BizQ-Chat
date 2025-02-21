@@ -1,36 +1,40 @@
 import { UserType, User, Business } from "./index";
 
 export interface Contact {
-  id: string;
-  name: string;
-  friendID: string;
-  ownerID: string;
+  friend: User | Business;
   ownerType: UserType;
+  ownerId: string;
   friendType: UserType;
-  isShop: boolean;
-  image?: string;
-  remark?: string;
-  note?: string;
-  groups?: string[];
-  isBlocked?: boolean;
-  employeeRemarks?: string[];
-  friend?: User | Business;
-  allowedPrivatePublication?: number;
-  allowedHimToAccessMyPrivatePublication?: number;
-  allowedHimToAccessMyShop?: number;
-  allowedShop?: number;
-  inFollowing?: number;
+  friendId: string;
+  employeeIdsBlockThisContact: string[];
+  employeeIdsDeleteThisContact: string[];
+  isBlocked: boolean;
+  handlerType: UserType;
+  handlerId: string;
+  isDeleted: boolean;
+  employeeRemarks: string[];
   createdAt: string;
   updatedAt: string;
-  // UI 状态字段
-  forwardSelected?: boolean;
-  isSelected?: boolean;
+  note: string;
+  remark: string;
+  findInContact: number;
+  groups: ContactGroup[];
+  allowedPrivatePublication: number;
+  allowedHimToAccessMyPrivatePublication: number;
+  allowedShop: number;
+  allowedHimToAccessMyShop: number;
+  inFollowing: number;
+  id: string;
 }
 
 // 联系人分组类型
 export interface ContactGroup {
   id: string;
   name: string;
+  image: string;
+  isDefault: boolean;
+  ownerId: string;
+  ownerType: UserType;
   createdAt: string;
   updatedAt: string;
 }
@@ -68,6 +72,7 @@ export interface CreateGroupParams {
 // 更新分组请求参数
 export interface UpdateGroupParams {
   name: string;
+  image?: string;
 }
 
 // 联系人列表响应

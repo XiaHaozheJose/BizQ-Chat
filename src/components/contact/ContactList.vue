@@ -15,7 +15,13 @@
             class="group-item"
             @click="handleGroupClick(group)"
           >
-            <el-icon><Folder /></el-icon>
+            <el-avatar
+              :size="24"
+              :src="getImageUrl(group.image, 'small')"
+              shape="square"
+            >
+              <el-icon><Folder /></el-icon>
+            </el-avatar>
             <span class="group-name">{{ group.name }}</span>
             <span class="group-count">{{
               getGroupContactsCount(group.id)
@@ -52,12 +58,13 @@
 
 <script setup lang="ts">
 import { ref, computed } from "vue";
-import { ArrowDown, Folder } from "@element-plus/icons-vue";
+import { Folder } from "@element-plus/icons-vue";
 import { useContactStore } from "@/store/contact";
 import { useI18n } from "vue-i18n";
 import type { Contact, ContactGroup } from "@/types";
-import { UserType } from "@/types";
 import ContactItem from "@/components/contact/ContactItem.vue";
+import { getImageUrl } from "@/utils";
+import { useRouter } from "vue-router";
 
 const props = defineProps<{
   selectable?: boolean;
@@ -67,11 +74,13 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: "select", contact: Contact): void;
   (e: "selectMultiple", contacts: Contact[]): void;
+  (e: "select-group", group: ContactGroup): void;
 }>();
 
 const { t } = useI18n();
 const contactStore = useContactStore();
 const selectedContactIds = ref<string[]>([]);
+const router = useRouter();
 
 // 计算属性
 const groups = computed(() => contactStore.groups);
@@ -80,11 +89,13 @@ const contacts = computed(() => contactStore.contacts);
 // 按字母排序的联系人
 const alphabeticalContacts = computed(() => {
   const result: Record<string, Contact[]> = {};
-  console.log(contacts.value);
+  console.log("contacts", contacts.value);
   contacts.value
-    .filter((contact) => contact && contact.name) // Filter out invalid contacts
+    .filter((contact) => contact && contact.friend && contact.friend.name) // Filter out invalid contacts
     .forEach((contact) => {
-      const firstLetter = (contact.name || "").charAt(0).toUpperCase() || "#";
+      console.log("contact.name", contact.friend.name);
+      const firstLetter =
+        (contact.friend.name || "").charAt(0).toUpperCase() || "#";
       if (!result[firstLetter]) {
         result[firstLetter] = [];
       }
@@ -93,7 +104,9 @@ const alphabeticalContacts = computed(() => {
 
   // 对每个字母组内的联系人进行排序
   Object.keys(result).forEach((letter) => {
-    result[letter].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+    result[letter].sort((a, b) =>
+      (a.friend.name || "").localeCompare(b.friend.name || "")
+    );
   });
 
   // 返回按字母排序的结果
@@ -107,13 +120,14 @@ const alphabeticalContacts = computed(() => {
 
 // 方法
 const getGroupContactsCount = (groupId: string) => {
-  return contacts.value.filter((contact) => contact.groups?.includes(groupId))
-    .length;
+  return contacts.value.filter((contact) =>
+    contact.groups.map((group) => group.id).includes(groupId)
+  ).length;
 };
 
+// 处理分组点击
 const handleGroupClick = (group: ContactGroup) => {
-  // TODO: 处理分组点击，可以实现筛选该分组的联系人
-  console.log("Group clicked:", group);
+  emit("select-group", group);
 };
 
 const selectContact = (contact: Contact) => {
@@ -219,10 +233,14 @@ const handleEnterpriseContacts = () => {
           background-color: var(--el-fill-color-light);
         }
 
-        .el-icon {
-          font-size: 18px;
-          color: var(--el-text-color-secondary);
+        .el-avatar {
           margin-right: 12px;
+          background-color: var(--el-color-primary-light-8);
+
+          .el-icon {
+            font-size: 16px;
+            color: var(--el-color-primary);
+          }
         }
 
         .group-name {

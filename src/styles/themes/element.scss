@@ -1,0 +1,44 @@
+// Element Plus 主题覆盖
+:root {
+  // 主色
+  --el-color-primary: var(--color-primary);
+  --el-color-primary-light-3: #515151;
+  --el-color-primary-light-5: #939392;
+  --el-color-primary-light-7: #D2D2D2;
+  --el-color-primary-light-8: #d9d9d9;
+  --el-color-primary-light-9: #F7F7F7;
+  --el-color-primary-dark-2: #515151;
+
+  // 成功色
+  --el-color-success: var(--color-success);
+  
+  // 警告色
+  --el-color-warning: var(--color-warning);
+  
+  // 危险色
+  --el-color-danger: var(--color-danger);
+  
+  // 信息色
+  --el-color-info: var(--color-info);
+
+  // 文字颜色
+  --el-text-color-primary: var(--text-primary);
+  --el-text-color-regular: var(--text-regular);
+  --el-text-color-secondary: var(--text-secondary);
+  --el-text-color-placeholder: var(--text-placeholder);
+
+  // 边框颜色
+  --el-border-color: var(--border-base);
+  --el-border-color-light: var(--border-light);
+  --el-border-color-lighter: var(--border-lighter);
+
+  // 填充色
+  --el-fill-color: var(--bg-base);
+  --el-fill-color-light: var(--bg-light);
+  --el-fill-color-lighter: var(--bg-lighter);
+
+  // 背景色
+  --el-bg-color: var(--bg-lighter);
+  --el-bg-color-page: var(--bg-base);
+  --el-bg-color-overlay: var(--bg-lighter);
+} 

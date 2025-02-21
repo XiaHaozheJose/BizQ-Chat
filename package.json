@@ -5,32 +5,48 @@
   "main": "dist-electron/main/main.js",
   "scripts": {
     "dev": "vite",
-    "build": "vue-tsc --noEmit && vite build && electron-builder",
+    "build": "vite build && electron-builder",
     "preview": "vite preview",
-    "rebuild": "electron-rebuild -f -w sqlite3"
+    "rebuild": "electron-rebuild",
+    "postinstall": "electron-builder install-app-deps",
+    "build:win": "npm run rebuild && npm run build -- --win",
+    "build:mac": "npm run rebuild && npm run build -- --mac",
+    "build:all": "npm run rebuild && npm run build -- --win --mac",
+    "build:clean": "rm -rf node_modules dist dist-electron && npm install && npm run build:win",
+    "lint": "vue-tsc --noEmit",
+    "lint:fix": "vue-tsc --noEmit --fix",
+    "format": "prettier --write \"src/**/*.{ts,vue,scss}\"",
+    "clean": "rimraf dist dist-electron release",
+    "type-check": "vue-tsc --noEmit --skipLibCheck",
+    "analyze": "vite build --mode analyze"
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.1",
+    "@types/uuid": "^10.0.0",
     "@vueuse/core": "^10.7.2",
     "axios": "^1.6.7",
     "electron-store": "^8.1.0",
     "element-plus": "^2.9.3",
     "firebase": "^10.7.2",
     "idb": "^8.0.2",
+    "localforage": "^1.10.0",
     "pinia": "^2.1.7",
     "socket.io-client": "^4.7.4",
-    "sqlite3": "^5.1.7",
+    "uuid": "^11.0.5",
     "vue": "^3.4.15",
     "vue-i18n": "^9.14.2",
-    "vue-router": "^4.2.5"
+    "vue-router": "^4.2.5",
+    "wavesurfer.js": "^7.9.1"
   },
   "devDependencies": {
-    "@types/node": "^20.11.16",
+    "@types/node": "^20.17.19",
     "@vitejs/plugin-vue": "^5.0.3",
     "electron": "^28.2.1",
     "electron-builder": "^24.9.1",
     "electron-rebuild": "^3.2.9",
-    "sass": "^1.70.0",
+    "prettier": "^3.5.1",
+    "rimraf": "^6.0.1",
+    "sass": "^1.71.0",
     "typescript": "^5.3.3",
     "vite": "^5.0.12",
     "vite-plugin-electron": "^0.28.0",
@@ -50,13 +66,35 @@
       "dist-electron"
     ],
     "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
       "category": "public.app-category.social-networking"
     },
     "win": {
-      "target": "nsis"
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico",
+      "asar": false
     },
-    "linux": {
-      "target": "AppImage"
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
     }
   }
 }

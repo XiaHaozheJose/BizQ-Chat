@@ -1,5 +1,3 @@
-import { User, Business } from "./user";
-
 // 用户类型枚举
 export enum UserType {
   User = "user",
@@ -18,28 +16,6 @@ export enum AccessType {
   Public = "public",
   Private = "private",
   NoShowPrice = "noShowPrice",
-}
-
-// 消息类型枚举
-export enum MessageType {
-  TEXT = "text",
-  IMAGE = "image",
-  AUDIO = "audio",
-  LOCATION = "location",
-  ORDER = "order",
-  PRE_ORDER = "preOrder",
-  PAYMENT = "payment",
-  PRODUCT = "product",
-  CARD = "card",
-  CONTACT = "contact",
-  SYSTEM = "system",
-  PDF = "pdf",
-  INITIALIZE_PAYMENT = "initializePayment",
-  SHIPMENT = "shipment",
-  RETURN = "return",
-  OUT_OF_STOCK = "outOfStock",
-  COUPON = "coupon",
-  VOUCHER = "voucher",
 }
 
 // 分页参数
@@ -61,15 +37,11 @@ export type {
   ContactResponse,
   ContactGroupResponse,
 } from "./contact";
-export type {
-  Message,
-  Conversation,
-  ConversationUser,
-  UserStatus,
-  MessageStatus,
-} from "./chat";
 
-export type { User, Business, IndustryContent } from "./user";
+export type { Message, Conversation, ConversationUser } from "./chat";
+
+export { UserStatus, MessageStatus, MessageType } from "./chat";
+
 export type {
   ApiResponse,
   LoginParams,
@@ -78,3 +50,5 @@ export type {
   ShopsListResponse,
   SwitchOperatorParams,
 } from "./api";
+
+export type { User, Business, IndustryContent } from "./user";

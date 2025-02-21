@@ -97,8 +97,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed } from "vue";
-import { useRouter } from "vue-router";
+import { ref, reactive, computed, nextTick } from "vue";
+import { useRouter, useRoute } from "vue-router";
 import { FormInstance, FormRules } from "element-plus";
 import {
   User,
@@ -115,6 +115,7 @@ import { countries, type Country } from "@/constants/countries";
 import { useI18n } from "vue-i18n";
 
 const router = useRouter();
+const route = useRoute();
 const userStore = useUserStore();
 const formRef = ref<FormInstance>();
 const showPassword = ref(false);
@@ -164,9 +165,19 @@ const rules = reactive<FormRules>({
   ],
 });
 
+// 保存区号到本地存储
+const saveAreaCode = (areaCode: string) => {
+  if (formData.rememberMe) {
+    localStorage.setItem("lastAreaCode", areaCode);
+  }
+};
+
 // 登录处理
 const handleLogin = async () => {
+  console.log("[Login] Starting login process...");
+
   if (!formRef.value) return;
+  loading.value = true;
 
   try {
     await formRef.value.validate();
@@ -180,20 +191,71 @@ const handleLogin = async () => {
       password: formData.password,
     };
 
-    // 调用登录
-    const success = await userStore.login(loginParams);
-    console.log("success", success);
+    console.log("[Login] Form validation passed, login params:", loginParams);
+    console.log(
+      "[Login] API Base URL:",
+      import.meta.env.VITE_API_BASE_URL || "http://dev.bizq.com/backend/api/v1"
+    );
+
+    const success = await userStore.login(loginParams).catch((error) => {
+      console.error("[Login] Login API error details:", {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data,
+        config: {
+          url: error.config?.url,
+          method: error.config?.method,
+          baseURL: error.config?.baseURL,
+          timeout: error.config?.timeout,
+        },
+      });
+      throw error;
+    });
+
+    console.log(
+      "[Login] Login API result:",
+      success,
+      "Token:",
+      userStore.token
+    );
+
     if (success) {
+      // Save area code if remember me is checked
       if (formData.rememberMe) {
-        localStorage.setItem("lastAreaCode", selectedCountry.value.code);
+        localStorage.setItem("areaCode", formData.countryCode);
       }
-      router.push("/");
+
+      // Get redirect path from query
+      const redirect = route.query.redirect as string;
+      console.log("[Login] Redirect path:", redirect);
+
+      // Try router navigation first
+      try {
+        console.log("[Login] Attempting router navigation...");
+        await router.replace(redirect || "/");
+        console.log("[Login] Router navigation completed");
+      } catch (error) {
+        console.error("[Login] Router navigation failed:", error);
+
+        // Fallback to window.location if router fails
+        if (window.electronAPI) {
+          console.log("[Login] Using Electron navigation API...");
+          await window.electronAPI.navigation.navigate(redirect || "/");
+        } else {
+          console.log("[Login] Using window.location...");
+          window.location.href = redirect || "/";
+        }
+      }
     }
   } catch (error: any) {
-    console.error("登录失败:", error);
-    ElMessage.error(
-      error.response?.data?.message || "登录失败，请检查手机号和密码"
-    );
+    console.error("[Login] Error during login:", {
+      error,
+      message: error.message,
+      stack: error.stack,
+    });
+    ElMessage.error(error.response?.data?.message || t("login.loginFailed"));
+  } finally {
+    loading.value = false;
   }
 };
 

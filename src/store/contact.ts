@@ -1,9 +1,17 @@
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
-import type { Contact, ContactGroup } from "@/types";
+import type {
+  Contact,
+  ContactGroup,
+  ConversationUser,
+  UpdateGroupParams,
+} from "@/types";
 import * as contactApi from "@/services/api/contact";
-import { chatDB } from "@/services/db";
+import { getChatDB, ChatDatabase } from "@/services/db";
 import { ElMessage } from "element-plus";
+import { useChatStore } from "@/store/chat";
+import { useUserStore } from "@/store/user";
+import { UserType } from "@/types";
 
 export const useContactStore = defineStore("contact", () => {
   // 状态
@@ -15,6 +23,17 @@ export const useContactStore = defineStore("contact", () => {
   const pageSize = ref(20);
   const searchKeyword = ref("");
 
+  const chatStore = useChatStore();
+  const userStore = useUserStore();
+
+  // 获取数据库实例
+  const chatDB = computed(() => {
+    if (!userStore.currentUser?.id) {
+      throw new Error("User not logged in");
+    }
+    return getChatDB(userStore.currentUser.id);
+  });
+
   // 计算属性
   const sortedContacts = computed(() => {
     return [...contacts.value].sort((a, b) => {
@@ -23,7 +42,7 @@ export const useContactStore = defineStore("contact", () => {
       if (!a.groups?.length && b.groups?.length) return 1;
 
       // 然后按名称排序
-      return (a.name || "").localeCompare(b.name || "");
+      return (a.friend.name || "").localeCompare(b.friend.name || "");
     });
   });
 
@@ -42,9 +61,9 @@ export const useContactStore = defineStore("contact", () => {
       if (!contact.groups?.length) {
         result.ungrouped.push(contact);
       } else {
-        contact.groups.forEach((groupId) => {
-          if (result[groupId]) {
-            result[groupId].push(contact);
+        contact.groups.forEach((group) => {
+          if (result[group.id]) {
+            result[group.id].push(contact);
           }
         });
       }
@@ -59,15 +78,20 @@ export const useContactStore = defineStore("contact", () => {
     currentPage.value = page;
 
     try {
+      // 确保数据库已初始化
+      if (!chatDB.value) {
+        throw new Error("Database not initialized");
+      }
+
       // 首先从本地加载数据
       if (useCache) {
-        const cachedContacts = await chatDB.getAllContacts();
+        const cachedContacts = await chatDB.value.getAllContacts();
         if (cachedContacts.length > 0) {
           contacts.value = cachedContacts.map((contact) => ({
             ...contact,
-            ownerType: contact.ownerType,
-            friendType: contact.friendType,
-          })) as Contact[];
+            ownerType: contact.ownerType as UserType,
+            friendType: contact.friendType as UserType,
+          })) as unknown as Contact[];
         }
       }
 
@@ -81,15 +105,32 @@ export const useContactStore = defineStore("contact", () => {
       // 更新状态
       contacts.value = response.contacts;
       total.value = response.count;
+
       // 保存到本地数据库
       await Promise.all(
-        response.contacts.map((contact) =>
-          chatDB.saveContact({
-            ...contact,
+        response.contacts.map(async (contact) => {
+          const friend = contact.friend;
+          const contactData = {
+            id: contact.id,
+            name: friend.name || "",
+            friendID: contact.friendId,
+            ownerID: contact.ownerId,
             ownerType: contact.ownerType.toString(),
             friendType: contact.friendType.toString(),
-          })
-        )
+            isShop: contact.friendType === UserType.Shop,
+            image: friend.headImg || friend.logo || "",
+            remark: contact.remark || "",
+            note: contact.note || "",
+            groups: contact.groups?.map((g) => g.id) || [],
+            createdAt: contact.createdAt,
+            updatedAt: contact.updatedAt,
+            isSelected: false,
+          } as const;
+          await chatDB.value.saveContact(contactData);
+
+          // 同步用户信息到会话
+          await syncUserToConversation(contact);
+        })
       );
     } catch (error) {
       console.error("Failed to load contacts:", error);
@@ -109,21 +150,73 @@ export const useContactStore = defineStore("contact", () => {
     }
   };
 
+  // 同步用户信息到会话用户
+  const syncUserToConversation = async (contact: Contact) => {
+    try {
+      // 确保数据库已初始化
+      if (!chatDB.value) {
+        throw new Error("Database not initialized");
+      }
+
+      const friend = contact.friend;
+      const userInfo: ConversationUser = {
+        id: contact.friendId,
+        name: friend.name || "",
+        avatar: friend.headImg || friend.logo || "",
+        status: "offline",
+        remark: contact.remark,
+        isShop: contact.friendType === UserType.Shop,
+      };
+
+      // 保存到本地数据库
+      await chatDB.value.saveUser(userInfo);
+
+      // 更新内存中的用户信息
+      chatStore.$patch((state) => {
+        state.users[contact.friendId] = userInfo;
+      });
+    } catch (error) {
+      console.error("Failed to sync user info:", error);
+    }
+  };
+
   const createContact = async (data: {
     friendId: string;
     remark?: string;
     groupIds?: string[];
   }) => {
     try {
+      // 确保数据库已初始化
+      if (!chatDB.value) {
+        throw new Error("Database not initialized");
+      }
+
       const response = await contactApi.createContact(data);
       const newContact = response.data.contact;
       contacts.value.push(newContact);
+
+      // 同步用户信息到会话
+      await syncUserToConversation(newContact);
+
       // 保存到本地数据库
-      await chatDB.saveContact({
-        ...newContact,
+      const friend = newContact.friend;
+      const contactData = {
+        id: newContact.id,
+        name: friend.name || "",
+        friendID: newContact.friendId,
+        ownerID: newContact.ownerId,
         ownerType: newContact.ownerType.toString(),
         friendType: newContact.friendType.toString(),
-      });
+        isShop: newContact.friendType === UserType.Shop,
+        image: friend.headImg || friend.logo || "",
+        remark: newContact.remark || "",
+        note: newContact.note || "",
+        groups: newContact.groups?.map((g) => g.id) || [],
+        createdAt: newContact.createdAt,
+        updatedAt: newContact.updatedAt,
+        isSelected: false,
+      } as const;
+      await chatDB.value.saveContact(contactData);
       ElMessage.success("添加联系人成功");
     } catch (error) {
       console.error("Failed to create contact:", error);
@@ -141,32 +234,66 @@ export const useContactStore = defineStore("contact", () => {
     }
   ) => {
     try {
-      const response = await contactApi.updateContact(id, data);
-      const updatedContact = response.data.contact;
+      // 确保数据库已初始化
+      if (!chatDB.value) {
+        throw new Error("Database not initialized");
+      }
+
+      await contactApi.updateContact(id, data);
+
+      // Find and update the contact in the local state
       const index = contacts.value.findIndex((c) => c.id === id);
       if (index !== -1) {
+        const updatedContact = {
+          ...contacts.value[index],
+          remark: data.remark ?? contacts.value[index].remark,
+          note: data.note ?? contacts.value[index].note,
+          groups: data.groupIds
+            ? groups.value.filter((g) => data.groupIds?.includes(g.id))
+            : contacts.value[index].groups,
+        };
         contacts.value[index] = updatedContact;
+
+        // 同步用户信息到会话
+        await syncUserToConversation(updatedContact);
+
+        // 更新本地数据库
+        const friend = updatedContact.friend;
+        const contactData = {
+          id: updatedContact.id,
+          name: friend.name || "",
+          friendID: updatedContact.friendId,
+          ownerID: updatedContact.ownerId,
+          ownerType: updatedContact.ownerType.toString(),
+          friendType: updatedContact.friendType.toString(),
+          isShop: updatedContact.friendType === UserType.Shop,
+          image: friend.headImg || friend.logo || "",
+          remark: updatedContact.remark || "",
+          note: updatedContact.note || "",
+          groups: updatedContact.groups?.map((g) => g.id) || [],
+          createdAt: updatedContact.createdAt,
+          updatedAt: updatedContact.updatedAt,
+          isSelected: false,
+        } as const;
+        await chatDB.value.saveContact(contactData);
       }
-      // 更新本地数据库
-      await chatDB.saveContact({
-        ...updatedContact,
-        ownerType: updatedContact.ownerType.toString(),
-        friendType: updatedContact.friendType.toString(),
-      });
-      ElMessage.success("更新联系人成功");
     } catch (error) {
       console.error("Failed to update contact:", error);
-      ElMessage.error("更新联系人失败");
       throw error;
     }
   };
 
   const deleteContact = async (id: string) => {
     try {
+      // 确保数据库已初始化
+      if (!chatDB.value) {
+        throw new Error("Database not initialized");
+      }
+
       await contactApi.deleteContact(id);
       contacts.value = contacts.value.filter((c) => c.id !== id);
       // 从本地数据库删除
-      await chatDB.deleteContact(id);
+      await chatDB.value.deleteContact(id);
       ElMessage.success("删除联系人成功");
     } catch (error) {
       console.error("Failed to delete contact:", error);
@@ -187,12 +314,15 @@ export const useContactStore = defineStore("contact", () => {
     }
   };
 
-  const updateGroup = async (id: string, name: string) => {
+  const updateGroup = async (id: string, data: UpdateGroupParams) => {
     try {
-      const response = await contactApi.updateContactGroup(id, { name });
+      await contactApi.updateContactGroup(id, data);
       const index = groups.value.findIndex((g) => g.id === id);
       if (index !== -1) {
-        groups.value[index] = response.data.contactGroup;
+        groups.value[index] = {
+          ...groups.value[index],
+          ...data,
+        };
       }
       ElMessage.success("更新分组成功");
     } catch (error) {
@@ -221,7 +351,39 @@ export const useContactStore = defineStore("contact", () => {
 
   // 初始化
   const initialize = async () => {
-    await Promise.all([loadContacts(), loadGroups()]);
+    try {
+      if (!userStore.currentUser?.id) {
+        console.warn(
+          "Skipping contact store initialization - no user logged in"
+        );
+        return;
+      }
+
+      // 确保数据库已初始化
+      await chatDB.value.initialize();
+
+      // 加载数据
+      await Promise.all([loadContacts(), loadGroups()]);
+    } catch (error) {
+      console.error("Failed to initialize contact store:", error);
+      ElMessage.error("初始化联系人失败");
+    }
+  };
+
+  // 清理数据
+  const cleanup = async () => {
+    // 清理内存中的数据
+    contacts.value = [];
+    groups.value = [];
+    total.value = 0;
+    currentPage.value = 1;
+    searchKeyword.value = "";
+
+    // 关闭数据库连接
+    // 注意:这里只是关闭连接,不删除数据,以便将来可以重新加载
+    if (userStore.currentUser?.id) {
+      ChatDatabase.clearInstance(userStore.currentUser.id);
+    }
   };
 
   return {
@@ -244,5 +406,6 @@ export const useContactStore = defineStore("contact", () => {
     deleteGroup,
     setSearchKeyword,
     initialize,
+    cleanup,
   };
 });
