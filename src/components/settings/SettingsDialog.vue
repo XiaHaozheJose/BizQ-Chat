@@ -50,10 +50,10 @@
           </div>
           <el-select v-model="currentLanguage" @change="handleLanguageChange">
             <el-option
-              v-for="lang in ['zh-CN', 'en-US']"
-              :key="lang"
-              :label="t(`dialog.settings.languages.${lang}`)"
-              :value="lang"
+              v-for="lang in SUPPORTED_LANGUAGES"
+              :key="lang.code"
+              :label="lang.name"
+              :value="lang.code"
             />
           </el-select>
         </div>
@@ -161,6 +161,7 @@ import { Setting, SwitchButton, ArrowRight } from "@element-plus/icons-vue";
 import { getImageUrl, DEFAULT_AVATAR, DEFAULT_SHOP_AVATAR } from "@/utils";
 import { UserType, type Business, type User } from "@/types";
 import { useRouter } from "vue-router";
+import { SUPPORTED_LANGUAGES } from "@/config/languages";
 
 const props = defineProps<{
   modelValue: boolean;
