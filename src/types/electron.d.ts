@@ -12,22 +12,10 @@ interface Window {
   close: () => Promise<void>;
 }
 
-interface Screenshot {
-  start: () => Promise<{
-    sourceId: string;
-    width: number;
-    height: number;
-  } | null>;
-  finish: (imageData: string) => Promise<boolean>;
-  cancel: () => Promise<boolean>;
-  onTrigger: (callback: () => void) => () => void;
-}
-
 interface ElectronAPI {
   navigation: Navigation;
   file: File;
   window: Window;
-  screenshot: Screenshot;
 }
 
 declare global {

@@ -124,6 +124,7 @@ export default {
     enterpriseContacts: "企业微信联系人",
     groups: "分组列表",
     noContacts: "暂无联系人",
+    selectContact: "选择联系人",
   },
   contact: {
     detail: "联系人详情",
@@ -206,5 +207,14 @@ export default {
       friday: "周五",
       saturday: "周六",
     },
+  },
+  user: {
+    detail: "用户详情",
+    phone: "电话",
+    email: "邮箱",
+    businessType: "商家类型",
+    address: "地址",
+    description: "描述",
+    visitShop: "访问店铺网站",
   },
 };

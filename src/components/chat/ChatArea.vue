@@ -2,7 +2,7 @@
   <div class="chat-area">
     <!-- 聊天头部 -->
     <draggable-container class="chat-header" with-border height="64px">
-      <div class="chat-title">
+      <div class="chat-title no-drag" @click="handleUserClick">
         <span class="name">{{ otherUser?.name }}</span>
         <span v-if="otherUser?.isShop" class="shop-tag">{{
           t("common.shop")
@@ -85,6 +85,15 @@
         </template>
       </chat-input>
     </div>
+
+    <!-- 用户详情对话框 -->
+    <user-detail-dialog
+      v-if="showUserDetail"
+      v-model="showUserDetail"
+      :user-id="otherUser?.id || ''"
+      :is-shop="otherUser?.isShop || false"
+      @update:modelValue="handleDialogClose"
+    />
   </div>
 </template>
 
@@ -100,6 +109,7 @@ import { Close, Loading, Crop } from "@element-plus/icons-vue";
 import ChatInput from "./ChatInput.vue";
 import DraggableContainer from "@/components/base/DraggableContainer.vue";
 import { ChatMessage } from "@/types/chat";
+import UserDetailDialog from "@/components/user/UserDetailDialog.vue";
 
 const props = defineProps<{
   conversationId: string;
@@ -270,6 +280,21 @@ const handleScroll = async (e: Event) => {
     }
   }
 };
+
+// 状态
+const showUserDetail = ref(false);
+
+// 处理用户点击
+const handleUserClick = () => {
+  if (otherUser.value?.id) {
+    showUserDetail.value = true;
+  }
+};
+
+// 处理对话框关闭
+const handleDialogClose = () => {
+  showUserDetail.value = false;
+};
 </script>
 
 <style lang="scss" scoped>
@@ -289,6 +314,14 @@ const handleScroll = async (e: Event) => {
       display: flex;
       align-items: center;
       gap: 8px;
+      cursor: pointer;
+      padding: 8px;
+      border-radius: 4px;
+      transition: background-color 0.3s;
+
+      &:hover {
+        background-color: var(--el-fill-color-light);
+      }
 
       .name {
         font-size: 16px;

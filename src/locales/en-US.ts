@@ -125,6 +125,7 @@ export default {
     enterpriseContacts: "Enterprise Contacts",
     groups: "Groups",
     noContacts: "No Contacts",
+    selectContact: "Select Contact",
   },
   contact: {
     detail: "Contact Details",
@@ -207,5 +208,14 @@ export default {
       friday: "Fri",
       saturday: "Sat",
     },
+  },
+  user: {
+    detail: "User Details",
+    phone: "Phone",
+    email: "Email",
+    businessType: "Business Type",
+    address: "Address",
+    description: "Description",
+    visitShop: "Visit Shop Website",
   },
 };

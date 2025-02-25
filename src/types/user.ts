@@ -29,6 +29,7 @@ export interface BaseUser {
   name: string;
   avatar: string;
   headImg?: string;
+  subDomain?: string;
   logo?: string;
   isShop: boolean;
   operatorType: UserType;

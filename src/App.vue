@@ -8,13 +8,12 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted } from "vue";
+import { onMounted } from "vue";
 import { useRouter } from "vue-router";
 import zhCn from "element-plus/dist/locale/zh-cn.mjs";
 import { useUserStore } from "@/store/user";
 import { useAudioStore } from "@/store/audio";
 import ContextMenu from "@/components/common/ContextMenu.vue";
-import SideNav from "@/components/base/SideNav.vue";
 
 const router = useRouter();
 const userStore = useUserStore();
@@ -25,16 +24,6 @@ onMounted(async () => {
   if (userStore.currentUser?.id) {
     await audioStore.initialize();
   }
-
-  // 监听截图快捷键
-  const cleanup = window.electronAPI.screenshot.onTrigger(() => {
-    router.push("/screenshot");
-  });
-
-  // 组件卸载时清理监听器
-  onUnmounted(() => {
-    cleanup();
-  });
 });
 </script>
 
