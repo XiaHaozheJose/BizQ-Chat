@@ -55,6 +55,7 @@ export const FirebaseConstants = {
     CURRENT_CONNECTION: "currentConnection",
     DELETE_MESSAGES: "deleteMessages",
     UNREAD_COUNT: "unReadCount",
+    CONVERSATION_ID: "conversationId",
   },
   // 分隔符
   SEPARATOR: "#$",

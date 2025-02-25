@@ -3,8 +3,14 @@ import { ref, computed, onMounted, onUnmounted } from "vue";
 import { database } from "@/services/firebase";
 import { getChatDB, ChatDatabase } from "@/services/db";
 import { useUserStore } from "./user";
-import type { Message, Conversation, ConversationUser } from "@/types";
-import { MessageType, MessageStatus } from "@/types";
+import type {
+  Message,
+  Conversation,
+  ConversationUser,
+  User,
+  Business,
+} from "@/types";
+import { MessageType, MessageStatus, UserType } from "@/types";
 import {
   ref as dbRef,
   onValue,
@@ -22,6 +28,15 @@ import { ElMessage } from "element-plus";
 import { v4 as uuidv4 } from "uuid";
 import { generalFileService, audioFileService } from "@/services/file";
 import { ChatMessage } from "@/types/chat";
+import { generateUnitConversationId } from "@/utils/crypto";
+
+// 生成会话ID的工具函数, 根据两个用户ID生成一个会话ID
+const generateConversationId = async (
+  id1: string,
+  id2: string
+): Promise<string> => {
+  return await generateUnitConversationId(id1, id2);
+};
 
 export const useChatStore = defineStore("chat", () => {
   // 状态
@@ -182,7 +197,6 @@ export const useChatStore = defineStore("chat", () => {
             id: otherUserId,
             name: observeInfo.BQConversationUser.name || "",
             avatar: observeInfo.BQConversationUser.avatar || "",
-            status: "offline",
             isShop: observeInfo.BQConversationUser.isShop || false,
           };
           users.value[otherUserId] = userInfo;
@@ -1004,6 +1018,141 @@ export const useChatStore = defineStore("chat", () => {
     }) as EventListener);
   });
 
+  // 创建或获取会话 < 点击 contact 的时候>
+  const createOrGetConversation = async (friend: User | Business) => {
+    const userStore = useUserStore();
+    if (!userStore.currentUser) throw new Error("User not logged in");
+
+    const currentUserId = userStore.currentUser.id;
+    const conversationId = await generateConversationId(
+      currentUserId,
+      friend.id
+    );
+
+    // 1.检查是否已存在会话
+    //1.1 检查本地是否存在
+    let localConversation = conversations.value.find(
+      (c) => c.id === conversationId
+    );
+    let updateFirebase = false;
+    let updateLocal = false;
+
+    if (!localConversation) {
+      //1.2 检查Firebase是否存在
+      const conversationRef = dbRef(
+        database,
+        `${FirebaseConstants.TABLES.CONVERSATION}/${conversationId}`
+      );
+      const conversationSnapshot = await get(conversationRef);
+      if (!conversationSnapshot.exists()) {
+        updateFirebase = true;
+      }
+      updateLocal = true;
+    }
+
+    // 2.创建新会话
+    let conversation = {
+      id: conversationId,
+      creator: localConversation?.creator ?? currentUserId,
+      isGrouped: localConversation?.isGrouped ?? false,
+      senderId: localConversation?.senderId ?? currentUserId,
+      receiveId: localConversation?.receiveId ?? friend.id,
+      users: localConversation?.users ?? [currentUserId, friend.id].join("#$"),
+    };
+
+    //3. 进行同步Firebase
+    if (updateFirebase) {
+      await createFirebaseConversation(conversation);
+    }
+    //4. 同步用户信息
+    await syncConversationUsers(conversation, friend);
+
+    //5. 保存到本地数据库
+    if (updateLocal) {
+      await chatDB.value.saveConversation(conversation);
+      // 更新conversation 列表
+      conversations.value.unshift(conversation);
+    }
+
+    return conversation;
+  };
+
+  const createFirebaseConversation = async (conversation: Conversation) => {
+    const conversationRef = dbRef(
+      database,
+      `${FirebaseConstants.TABLES.CONVERSATION}/${conversation.id}`
+    );
+    await set(conversationRef, conversation);
+
+    // 设置双方的会话Id 映射
+    const userConversationRefs = [
+      dbRef(
+        database,
+        `${FirebaseConstants.TABLES.CONVERSATION_USER}/${conversation.creator}/${FirebaseConstants.FIELDS.OBSERVE_CONVERSATIONS}/${conversation.receiveId}/${FirebaseConstants.TABLES.CONVERSATION}/${FirebaseConstants.FIELDS.CONVERSATION_ID}`
+      ),
+      dbRef(
+        database,
+        `${FirebaseConstants.TABLES.CONVERSATION_USER}/${conversation.receiveId}/${FirebaseConstants.FIELDS.OBSERVE_CONVERSATIONS}/${conversation.creator}/${FirebaseConstants.TABLES.CONVERSATION}/${FirebaseConstants.FIELDS.CONVERSATION_ID}`
+      ),
+    ];
+
+    await Promise.all(
+      userConversationRefs.map((ref) => set(ref, conversation.id))
+    );
+  };
+
+  // 添加用户信息同步方法
+  const syncConversationUsers = async (
+    conversation: Conversation,
+    friend: User | Business
+  ) => {
+    console.log("syncConversationUsers", conversation, friend);
+    const userStore = useUserStore();
+    if (!userStore.currentUser) throw new Error("User not logged in");
+
+    const currentUserId = userStore.currentUser.id;
+
+    const currentUserInfo = {
+      name: userStore.currentUser.name,
+      avatar: userStore.currentUser.headImg ?? userStore.currentUser.logo ?? "",
+      isShop: userStore.currentUser.operatorType === UserType.Shop,
+    };
+
+    const friendInfo = {
+      name: friend.name,
+      avatar: friend.headImg ?? friend.logo ?? "",
+      isShop: friend.operatorType === UserType.Shop,
+    };
+
+    const userRefs = [
+      dbRef(
+        database,
+        `${FirebaseConstants.TABLES.CONVERSATION_USER}/${currentUserId}/${FirebaseConstants.FIELDS.OBSERVE_CONVERSATIONS}/${conversation.receiveId}`
+      ),
+      dbRef(
+        database,
+        `${FirebaseConstants.TABLES.CONVERSATION_USER}/${conversation.receiveId}/${FirebaseConstants.FIELDS.OBSERVE_CONVERSATIONS}/${currentUserId}`
+      ),
+    ];
+    console.log("userRefs", userRefs);
+    await Promise.all([
+      update(userRefs[0], {
+        [FirebaseConstants.TABLES.CONVERSATION_USER]: friendInfo,
+      }),
+      update(userRefs[1], {
+        [FirebaseConstants.TABLES.CONVERSATION_USER]: currentUserInfo,
+      }),
+    ]);
+
+    chatDB.value.saveUser({
+      id: friend.id,
+      name: friend.name,
+      avatar: friend.headImg ?? friend.logo ?? "",
+      remark: friend.remark,
+      isShop: friend.operatorType === UserType.Shop,
+    });
+  };
+
   return {
     conversations,
     currentConversation,
@@ -1023,5 +1172,6 @@ export const useChatStore = defineStore("chat", () => {
     setHasMoreMessages,
     deleteMessage,
     undoMessage,
+    createOrGetConversation,
   };
 });

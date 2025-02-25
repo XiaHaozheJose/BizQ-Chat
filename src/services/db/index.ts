@@ -8,8 +8,7 @@ interface ChatDBSchema extends DBSchema {
       id: string;
       name: string;
       avatar: string;
-      status: string;
-      lastSeen?: number;
+      isShop: boolean;
       remark?: string;
     };
     indexes: { "by-name": string };
@@ -18,7 +17,7 @@ interface ChatDBSchema extends DBSchema {
   conversations: {
     key: string;
     value: Conversation;
-    indexes: { "by-users": string };
+    indexes: { "by-users": string; "by-id": string };
   };
 
   messages: {

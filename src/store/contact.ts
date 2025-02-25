@@ -163,7 +163,6 @@ export const useContactStore = defineStore("contact", () => {
         id: contact.friendId,
         name: friend.name || "",
         avatar: friend.headImg || friend.logo || "",
-        status: "offline",
         remark: contact.remark,
         isShop: contact.friendType === UserType.Shop,
       };

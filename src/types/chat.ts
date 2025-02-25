@@ -54,10 +54,8 @@ export interface ConversationUser {
   id: string;
   name: string;
   avatar: string;
-  status: string;
-  lastSeen?: number;
   remark?: string;
-  isShop?: boolean;
+  isShop: boolean;
 }
 
 // 在线状态类型
