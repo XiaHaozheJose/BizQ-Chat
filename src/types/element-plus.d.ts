@@ -63,6 +63,12 @@ declare module "@element-plus/icons-vue" {
   export const Check: Component;
   export const VideoPlay: Component;
   export const VideoPause: Component;
+  export const Crop: Component;
+  export const Edit: Component;
+  export const Back: Component;
+  export const CirclePlus: Component;
+  export const Rectangle: Component;
+  export const TextWidth: Component;
 }
 
 declare module "element-plus/dist/locale/zh-cn.mjs" {

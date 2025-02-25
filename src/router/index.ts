@@ -5,10 +5,58 @@ import {
 } from "vue-router";
 import type { RouteRecordRaw } from "vue-router";
 import { useUserStore } from "@/store/user";
-import { homeView } from "@/views/home";
-import { loginView } from "@/views/login";
+import Layout from "@/layout/index.vue";
 
-const routes: RouteRecordRaw[] = [homeView, loginView];
+// 基础路由
+const constantRoutes: RouteRecordRaw[] = [
+  {
+    path: "/login",
+    name: "login",
+    component: () => import("@/views/login/index.vue"),
+    meta: {
+      title: "登录",
+      requiresAuth: false,
+    },
+  },
+  {
+    path: "/",
+    component: Layout,
+    redirect: "/chat",
+    children: [
+      {
+        path: "chat/:id?",
+        name: "chat",
+        component: () => import("@/views/chat/index.vue"),
+        meta: {
+          title: "聊天",
+          icon: "chat",
+          requiresAuth: true,
+        },
+      },
+      {
+        path: "contacts/:id?",
+        name: "contacts",
+        component: () => import("@/views/contacts/index.vue"),
+        meta: {
+          title: "联系人",
+          icon: "contacts",
+          requiresAuth: true,
+        },
+      },
+    ],
+    meta: {
+      requiresAuth: true,
+    },
+  },
+  {
+    path: "/screenshot",
+    name: "screenshot",
+    component: () => import("@/views/screenshot/index.vue"),
+  },
+];
+
+// 合并所有路由
+const routes = constantRoutes;
 
 // 检测是否在Electron环境中
 const isElectron = window.electronAPI !== undefined;
@@ -17,6 +65,14 @@ const router = createRouter({
   // 在Electron环境使用hash模式,Web环境使用history模式
   history: isElectron ? createWebHashHistory() : createWebHistory(),
   routes,
+  scrollBehavior(to, from, savedPosition) {
+    // 如果有保存的位置,使用保存的位置
+    if (savedPosition) {
+      return savedPosition;
+    }
+    // 否则保持当前位置
+    return { left: 0, top: 0 };
+  },
 });
 
 // 全局导航守卫
@@ -93,6 +149,10 @@ router.beforeEach(async (to, from, next) => {
 // 导航完成后的处理
 router.afterEach((to) => {
   console.log("[Router] Navigation completed:", to.fullPath);
+  // 设置页面标题
+  if (to.meta.title) {
+    document.title = `${to.meta.title} - BizQ Chat`;
+  }
 });
 
 // 导航错误处理

@@ -1,13 +1,13 @@
 <template>
   <div class="contact-detail">
     <!-- Header with back button -->
-    <div class="detail-header">
-      <el-button @click="$router.back()" link> </el-button>
+    <draggable-container class="detail-header" with-border height="64px">
+      <el-button @click="$router.back()" link class="no-drag"> </el-button>
       <span class="header-title">{{ t("contact.detail") }}</span>
-      <el-button @click="handleSave" type="primary" link>
+      <el-button @click="handleSave" type="primary" link class="no-drag">
         {{ t("common.save") }}
       </el-button>
-    </div>
+    </draggable-container>
 
     <!-- Contact basic info -->
     <div class="contact-info">
@@ -66,7 +66,12 @@
     <!-- 底部功能按钮 -->
     <div class="detail-footer">
       <div class="detail-footer-item">
-        <el-button type="primary" text class="action-button">
+        <el-button
+          type="primary"
+          text
+          class="action-button"
+          @click="handleChatClick"
+        >
           <div class="button-content">
             <el-icon class="action-icon"><ChatDotRound /></el-icon>
             <span class="action-text">{{ t("common.chat") }}</span>
@@ -104,12 +109,15 @@ import type { Contact } from "@/types";
 import { UserType } from "@/types";
 import { getImageUrl } from "@/utils";
 import { ChatDotRound, Phone, VideoCamera } from "@element-plus/icons-vue";
+import DraggableContainer from "@/components/base/DraggableContainer.vue";
+
 const props = defineProps<{
   contact: Contact;
 }>();
 
 const emit = defineEmits<{
   (e: "update"): void;
+  (e: "chat", contact: Contact): void;
 }>();
 
 const { t } = useI18n();
@@ -173,6 +181,11 @@ const handleSave = async () => {
     ElMessage.error(t("contact.updateError"));
   }
 };
+
+const handleChatClick = () => {
+  if (!props.contact) return;
+  emit("chat", props.contact);
+};
 </script>
 
 <style lang="scss" scoped>
@@ -186,8 +199,9 @@ const handleSave = async () => {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 12px 16px;
-    border-bottom: 1px solid var(--el-border-color-light);
+    background-color: var(--el-bg-color-overlay);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    z-index: 1;
 
     .header-title {
       font-size: 16px;

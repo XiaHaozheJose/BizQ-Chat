@@ -3,6 +3,7 @@
     <!-- 工具栏 -->
     <div class="toolbar">
       <div class="left-tools">
+        <slot name="tools"></slot>
         <el-tooltip :content="t('common.emoji')" placement="top">
           <div class="tool-item" @click="handleEmojiClick">
             <el-icon><Face /></el-icon>
@@ -11,11 +12,6 @@
         <el-tooltip :content="t('common.file')" placement="top">
           <div class="tool-item" @click="handleFileClick">
             <el-icon><Folder /></el-icon>
-          </div>
-        </el-tooltip>
-        <el-tooltip content="截图" placement="top">
-          <div class="tool-item" @click="handleScreenshotClick">
-            <el-icon><Screenshot /></el-icon>
           </div>
         </el-tooltip>
         <el-tooltip :content="t('chat.message')" placement="top">

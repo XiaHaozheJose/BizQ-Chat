@@ -1,14 +1,14 @@
 <template>
   <div class="chat-area">
     <!-- 聊天头部 -->
-    <div class="chat-header">
+    <draggable-container class="chat-header" with-border height="64px">
       <div class="chat-title">
         <span class="name">{{ otherUser?.name }}</span>
         <span v-if="otherUser?.isShop" class="shop-tag">{{
           t("common.shop")
         }}</span>
       </div>
-    </div>
+    </draggable-container>
 
     <!-- 消息列表 -->
     <div
@@ -77,7 +77,13 @@
       <chat-input
         @send="handleSend"
         :reference-message="referenceMessageForInput"
-      />
+      >
+        <template #tools>
+          <el-button @click="router.push('/screenshot')">
+            <el-icon><Crop /></el-icon>
+          </el-button>
+        </template>
+      </chat-input>
     </div>
   </div>
 </template>
@@ -85,12 +91,14 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch, nextTick } from "vue";
 import { useI18n } from "vue-i18n";
+import { useRouter } from "vue-router";
 import { useChatStore } from "@/store/chat";
 import { useUserStore } from "@/store/user";
 import type { Message } from "@/types";
 import MessageFactory from "./messages/MessageFactory.vue";
-import { Close, Loading } from "@element-plus/icons-vue";
+import { Close, Loading, Crop } from "@element-plus/icons-vue";
 import ChatInput from "./ChatInput.vue";
+import DraggableContainer from "@/components/base/DraggableContainer.vue";
 import { ChatMessage } from "@/types/chat";
 
 const props = defineProps<{
@@ -101,6 +109,7 @@ const { t } = useI18n();
 const chatStore = useChatStore();
 const userStore = useUserStore();
 const messageListRef = ref<HTMLElement>();
+const router = useRouter();
 
 // 计算属性
 const currentUserId = computed(() => userStore.currentUser?.id || "");
@@ -271,11 +280,10 @@ const handleScroll = async (e: Event) => {
   background-color: var(--el-bg-color);
 
   .chat-header {
-    padding: 16px;
-    border-bottom: 1px solid var(--el-border-color-light);
     background-color: var(--el-bg-color-overlay);
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
     z-index: 1;
+    height: 64px;
 
     .chat-title {
       display: flex;
@@ -285,6 +293,7 @@ const handleScroll = async (e: Event) => {
       .name {
         font-size: 16px;
         font-weight: 500;
+        color: var(--el-text-color-primary);
       }
 
       .shop-tag {

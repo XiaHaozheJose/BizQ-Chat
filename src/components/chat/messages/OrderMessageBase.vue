@@ -110,8 +110,8 @@ const fetchOrderInfo = async () => {
 const openOrderDetail = () => {
   if (!orderInfo.value?.id) return;
   const url = `https://m.dev.bizq.com/uc/order-detail?id=${orderInfo.value.id}`;
-  // @ts-ignore - electronAPI is injected by preload script
-  window.electronAPI.openExternal(url);
+  // Use the correct API structure
+  window.electronAPI?.navigation.navigate(url);
 };
 
 defineExpose({

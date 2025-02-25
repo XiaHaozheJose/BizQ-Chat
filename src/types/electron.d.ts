@@ -1,23 +1,37 @@
-interface ElectronAPI {
-  database: {
-    query: (sql: string, params: any[]) => Promise<any>;
-    exec: (sql: string, params: any[]) => Promise<any>;
-  };
-  file: {
-    save: (path: string, data: any) => Promise<boolean>;
-    read: (path: string) => Promise<any>;
-  };
-  system: {
-    minimize: () => void;
-    maximize: () => void;
-    close: () => void;
-  };
-  openExternal: (url: string) => Promise<boolean>;
-  navigation: {
-    navigate: (url: string) => Promise<boolean>;
-  };
+interface Navigation {
+  navigate: (url: string) => Promise<boolean>;
+}
+
+interface File {
+  read: (url: string) => Promise<string>;
 }
 
 interface Window {
-  electronAPI?: ElectronAPI;
+  minimize: () => Promise<void>;
+  maximize: () => Promise<void>;
+  close: () => Promise<void>;
+}
+
+interface Screenshot {
+  start: () => Promise<{
+    sourceId: string;
+    width: number;
+    height: number;
+  } | null>;
+  finish: (imageData: string) => Promise<boolean>;
+  cancel: () => Promise<boolean>;
+  onTrigger: (callback: () => void) => () => void;
+}
+
+interface ElectronAPI {
+  navigation: Navigation;
+  file: File;
+  window: Window;
+  screenshot: Screenshot;
+}
+
+declare global {
+  interface Window {
+    electronAPI: ElectronAPI;
+  }
 }

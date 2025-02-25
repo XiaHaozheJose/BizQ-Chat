@@ -1,7 +1,12 @@
 <template>
-  <div class="side-nav">
+  <draggable-container
+    class="side-nav"
+    :class="{ expanded }"
+    has-system-buttons
+    padding="0"
+  >
     <!-- 用户头像 -->
-    <div class="nav-header">
+    <div class="nav-header no-drag">
       <el-avatar
         :size="40"
         :src="
@@ -24,60 +29,66 @@
 
     <!-- 导航菜单 -->
     <div class="nav-menu">
-      <div
-        class="nav-item"
-        :class="{ active: activeNav === 'chat' }"
-        @click="handleNavClick('chat')"
+      <router-link
+        v-for="item in navItems"
+        :key="item.name"
+        :to="item.path"
+        custom
+        v-slot="{ isActive, navigate }"
       >
-        <el-icon><ChatRound /></el-icon>
-      </div>
-      <div
-        class="nav-item"
-        :class="{ active: activeNav === 'contacts' }"
-        @click="handleNavClick('contacts')"
-      >
-        <el-icon><UserFilled /></el-icon>
-      </div>
+        <div
+          class="nav-item no-drag"
+          :class="{ active: isActive }"
+          @click="navigate"
+        >
+          <el-icon><component :is="item.icon" /></el-icon>
+          <span v-if="expanded" class="nav-text">{{ item.title }}</span>
+        </div>
+      </router-link>
     </div>
 
     <!-- 底部菜单 -->
     <div class="nav-footer">
-      <div class="nav-item" @click="handleSettingsClick">
+      <div class="nav-item no-drag" @click="handleSettingsClick">
         <el-icon><Setting /></el-icon>
+        <span v-if="expanded" class="nav-text">{{ t("common.settings") }}</span>
       </div>
     </div>
 
     <!-- 设置对话框 -->
     <settings-dialog v-model="showSettingsDialog" />
-  </div>
+  </draggable-container>
 </template>
 
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, computed } from "vue";
 import { useUserStore } from "@/store/user";
-import {
-  ChatDotRound,
-  ChatRound,
-  Setting,
-  UserFilled,
-} from "@element-plus/icons-vue";
+import { useI18n } from "vue-i18n";
+import { ChatRound, Setting, UserFilled } from "@element-plus/icons-vue";
 import { getImageUrl, DEFAULT_AVATAR, DEFAULT_SHOP_AVATAR } from "@/utils";
 import SettingsDialog from "@/components/settings/SettingsDialog.vue";
+import DraggableContainer from "@/components/base/DraggableContainer.vue";
 
-const emit = defineEmits<{
-  (e: "nav-change", nav: string): void;
-}>();
-
-const props = defineProps<{
-  activeNav: string;
-}>();
-
+const { t } = useI18n();
 const userStore = useUserStore();
 const showSettingsDialog = ref(false);
+const expanded = ref(false);
 
-const handleNavClick = (nav: string) => {
-  emit("nav-change", nav);
-};
+// 导航配置
+const navItems = computed(() => [
+  {
+    name: "chat",
+    title: t("common.chat"),
+    icon: ChatRound,
+    path: "/chat",
+  },
+  {
+    name: "contacts",
+    title: t("common.contacts"),
+    icon: UserFilled,
+    path: "/contacts",
+  },
+]);
 
 const handleProfileClick = () => {
   // TODO: 处理个人资料点击
@@ -90,17 +101,31 @@ const handleSettingsClick = () => {
 
 <style lang="scss" scoped>
 .side-nav {
-  width: 60px;
+  width: 65px;
   height: 100%;
-  background-color: var(--el-bg-color-overlay);
-  border-right: 1px solid var(--el-border-color-light);
+  background-color: var(--el-color-primary-light-8);
+  border-right: 1px solid var(--el-color-primary-light-8);
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 16px 0;
+  transition: width 0.3s;
+
+  &.expanded {
+    width: 200px;
+
+    .nav-item {
+      justify-content: flex-start;
+      padding: 0 20px;
+
+      .nav-text {
+        display: block;
+        margin-left: 12px;
+      }
+    }
+  }
 
   .nav-header {
-    margin-bottom: 24px;
+    margin: 16px 0 24px;
 
     .el-avatar {
       cursor: pointer;
@@ -128,6 +153,7 @@ const handleSettingsClick = () => {
     flex-direction: column;
     align-items: center;
     gap: 8px;
+    margin-bottom: 16px;
   }
 
   .nav-item {
@@ -145,10 +171,21 @@ const handleSettingsClick = () => {
       transition: color 0.3s;
     }
 
+    .nav-text {
+      display: none;
+      font-size: 14px;
+      color: var(--el-text-color-regular);
+      transition: color 0.3s;
+    }
+
     &:hover {
-      background-color: var(--el-fill-color-light-9);
+      background-color: var(--el-fill-color-light);
 
       .el-icon {
+        color: var(--el-text-color-primary);
+      }
+
+      .nav-text {
         color: var(--el-text-color-primary);
       }
     }
@@ -157,6 +194,11 @@ const handleSettingsClick = () => {
       .el-icon {
         color: var(--el-color-primary);
         transform: scale(1.2);
+      }
+
+      .nav-text {
+        color: var(--el-color-primary);
+        font-weight: 500;
       }
     }
   }

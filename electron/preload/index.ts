@@ -1,34 +1,49 @@
 import { contextBridge, ipcRenderer } from "electron";
 
-// 暴露给渲染进程的API
+// 导航相关API
+const navigation = {
+  navigate: (url: string) => ipcRenderer.invoke("shell:openExternal", url),
+};
+
+// 文件相关API
+const file = {
+  read: (url: string) => ipcRenderer.invoke("file:read", url),
+};
+
+// 窗口相关API
+const window = {
+  minimize: () => ipcRenderer.invoke("window:minimize"),
+  maximize: () => ipcRenderer.invoke("window:maximize"),
+  close: () => ipcRenderer.invoke("window:close"),
+};
+
+// 截图相关API
+const screenshot = {
+  start: () => ipcRenderer.invoke("screenshot:start"),
+  finish: (imageData: string) =>
+    ipcRenderer.invoke("screenshot:finish", imageData),
+  cancel: () => ipcRenderer.invoke("screenshot:cancel"),
+  onTrigger: (callback: () => void) => {
+    ipcRenderer.on("screenshot:trigger", callback);
+    return () => {
+      ipcRenderer.removeListener("screenshot:trigger", callback);
+    };
+  },
+};
+
+// 暴露API给渲染进程
 contextBridge.exposeInMainWorld("electronAPI", {
-  // 数据库操作
-  database: {
-    query: (sql: string, params: any[]) =>
-      ipcRenderer.invoke("database:query", sql, params),
-    exec: (sql: string, params: any[]) =>
-      ipcRenderer.invoke("database:exec", sql, params),
-  },
-
-  // 文件操作
-  file: {
-    save: (path: string, data: any) =>
-      ipcRenderer.invoke("file:save", path, data),
-    read: (path: string) => ipcRenderer.invoke("file:read", path),
-  },
-
-  // 系统操作
-  system: {
-    minimize: () => ipcRenderer.send("window:minimize"),
-    maximize: () => ipcRenderer.send("window:maximize"),
-    close: () => ipcRenderer.send("window:close"),
-  },
-
-  // 浏览器操作
-  openExternal: (url: string) => ipcRenderer.invoke("shell:openExternal", url),
-
-  // 导航操作
-  navigation: {
-    navigate: (url: string) => ipcRenderer.invoke("window:navigate", url),
-  },
+  navigation,
+  file,
+  window,
+  screenshot,
 });
+
+// TypeScript类型声明
+declare global {
+  interface Window {
+    electronAPI: typeof api;
+  }
+}
+
+export type ElectronAPI = typeof api;
