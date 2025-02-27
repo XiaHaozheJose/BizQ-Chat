@@ -51,4 +51,23 @@ export type {
   SwitchOperatorParams,
 } from "./api";
 
-export type { User, Business, IndustryContent } from "./user";
+export type { User, Business, IndustryContent, Permission, Role } from "./user";
+
+export type {
+  Coupon,
+  ContentTypeEnum as CouponContentTypeEnum,
+} from "./cupons";
+
+export type {
+  Publication,
+  PublicationQueryParams,
+  Comment,
+  Like,
+  PublicType,
+  Language,
+  Location,
+  Payload,
+  ContentTypeEnum as PublicationContentTypeEnum,
+  LocationType,
+  App,
+} from "./publications";

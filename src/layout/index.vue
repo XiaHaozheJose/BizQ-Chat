@@ -5,6 +5,7 @@
       <div class="main-content">
         <chat-view v-show="currentRoute === '/chat'" />
         <contacts-view v-show="currentRoute === '/contacts'" />
+        <circle-view v-show="currentRoute === '/circle'" />
       </div>
     </div>
   </div>
@@ -16,6 +17,7 @@ import { useRoute } from "vue-router";
 import SideNav from "@/components/layout/SideNav.vue";
 import ChatView from "@/views/chat/index.vue";
 import ContactsView from "@/views/contacts/index.vue";
+import CircleView from "@/views/circle/index.vue";
 
 const route = useRoute();
 const currentRoute = computed(() => {
@@ -23,6 +25,7 @@ const currentRoute = computed(() => {
   const path = route.path;
   if (path.startsWith("/chat")) return "/chat";
   if (path.startsWith("/contacts")) return "/contacts";
+  if (path.startsWith("/circle")) return "/circle";
   return path;
 });
 </script>

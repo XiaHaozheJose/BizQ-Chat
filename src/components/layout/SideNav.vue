@@ -64,7 +64,12 @@
 import { ref, computed } from "vue";
 import { useUserStore } from "@/store/user";
 import { useI18n } from "vue-i18n";
-import { ChatRound, Setting, UserFilled } from "@element-plus/icons-vue";
+import {
+  ChatDotSquare,
+  Setting,
+  UserFilled,
+  Stopwatch,
+} from "@element-plus/icons-vue";
 import { getImageUrl, DEFAULT_AVATAR, DEFAULT_SHOP_AVATAR } from "@/utils";
 import SettingsDialog from "@/components/settings/SettingsDialog.vue";
 import DraggableContainer from "@/components/base/DraggableContainer.vue";
@@ -79,7 +84,7 @@ const navItems = computed(() => [
   {
     name: "chat",
     title: t("common.chat"),
-    icon: ChatRound,
+    icon: ChatDotSquare,
     path: "/chat",
   },
   {
@@ -87,6 +92,12 @@ const navItems = computed(() => [
     title: t("common.contacts"),
     icon: UserFilled,
     path: "/contacts",
+  },
+  {
+    name: "circle",
+    title: t("common.circle"),
+    icon: Stopwatch,
+    path: "/circle",
   },
 ]);
 

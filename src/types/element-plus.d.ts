@@ -3,6 +3,14 @@ declare module "element-plus" {
   export { FormInstance, FormRules };
   import type { Component } from "vue";
 
+  export interface ScrollbarInstance {
+    wrap: {
+      scrollTop: number;
+      scrollHeight: number;
+      clientHeight: number;
+    };
+  }
+
   export const ElMessage: {
     success(message: string): void;
     warning(message: string): void;
@@ -69,6 +77,12 @@ declare module "@element-plus/icons-vue" {
   export const CirclePlus: Component;
   export const Rectangle: Component;
   export const TextWidth: Component;
+  export const ChatDotSquare: Component;
+  export const Stopwatch: Component;
+  export const MoreFilled: Component;
+  export const StarFilled: Component;
+  export const Star: Component;
+  export const Share: Component;
 }
 
 declare module "element-plus/dist/locale/zh-cn.mjs" {

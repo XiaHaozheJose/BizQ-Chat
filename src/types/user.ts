@@ -22,6 +22,19 @@ export enum AccessType {
   Private = "private",
   NoShowPrice = "noShowPrice",
 }
+// 预留权限类型
+export interface Permission {
+  code: string;
+  name: string;
+  actions: string[];
+}
+
+// 预留角色类型
+export interface Role {
+  code: string;
+  name: string;
+  permissions: Permission[];
+}
 
 // 基础用户信息
 export interface BaseUser {
@@ -43,6 +56,10 @@ export interface BaseUser {
   note?: string;
   followedCatIds?: string[];
   status?: UserStatus;
+
+  // 预留权限相关字段
+  roles?: Role[]; // 角色列表
+  permissions?: Permission[]; // 权限列表
 }
 
 // 普通用户

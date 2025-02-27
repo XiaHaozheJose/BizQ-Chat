@@ -43,6 +43,16 @@ const constantRoutes: RouteRecordRaw[] = [
           requiresAuth: true,
         },
       },
+      {
+        path: "circle",
+        name: "circle",
+        component: () => import("@/views/circle/index.vue"),
+        meta: {
+          title: "圈子",
+          icon: "circle",
+          requiresAuth: true,
+        },
+      },
     ],
     meta: {
       requiresAuth: true,

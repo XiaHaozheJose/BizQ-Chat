@@ -4,12 +4,12 @@
     :class="{ selected: selected }"
     @click="$emit('click')"
   >
-    <el-checkbox
+    <!-- <el-checkbox
       v-if="selected !== undefined"
       v-model="isSelected"
       @change="$emit('select')"
       @click.stop
-    />
+    /> -->
     <el-avatar
       :size="40"
       :shape="contact.friendType === UserType.Shop ? 'square' : 'circle'"

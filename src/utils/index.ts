@@ -148,3 +148,23 @@ export const getImageUrl = (
   }
   return `${url}-${size}.jpeg`;
 };
+
+// 获取当前位置
+export const getCurrentPosition = async (): Promise<{
+  latitude: number;
+  longitude: number;
+}> => {
+  return new Promise((resolve, reject) => {
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        resolve({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        });
+      },
+      (error) => {
+        reject(error);
+      }
+    );
+  });
+};
