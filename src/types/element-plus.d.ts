@@ -83,6 +83,14 @@ declare module "@element-plus/icons-vue" {
   export const StarFilled: Component;
   export const Star: Component;
   export const Share: Component;
+  export const ShoppingCart: Component;
+  export const Shop: Component;
+  export const Goods: Component;
+  export const List: Component;
+  export const Sort: Component;
+  export const SortUp: Component;
+  export const SortDown: Component;
+  export const Document: Component;
 }
 
 declare module "element-plus/dist/locale/zh-cn.mjs" {

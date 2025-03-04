@@ -79,10 +79,12 @@
             :preview-src-list="
               publication.contentArray.map((img) => getImageUrl(img, 'origin'))
             "
+            :initial-index="index"
             fit="cover"
             lazy
             loading="lazy"
-            @click="handleImageClick(index)"
+            :preview-teleported="true"
+            :hide-on-click-modal="false"
           >
             <template #placeholder>
               <div class="image-placeholder">
@@ -144,20 +146,36 @@
             :key="coupon._id"
             class="coupon-item"
           >
-            <div class="coupon-content">
-              <div class="coupon-amount">
+            <div
+              class="coupon-content"
+              :style="{
+                backgroundImage: getCouponBackground(coupon),
+                backgroundRepeat: 'no-repeat',
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+              }"
+            >
+              <div
+                class="coupon-amount"
+                :style="{ color: getCouponTextColor(coupon) }"
+              >
                 <span class="amount">{{ formatCouponAmount(coupon) }}</span>
                 <span class="unit">{{ getCouponUnit(coupon) }}</span>
               </div>
               <div class="coupon-info">
-                <div class="coupon-name">{{ coupon.remark }}</div>
-                <div class="coupon-validity">
-                  {{ t("coupon.validUntil") }}:
-                  {{ formatCouponValidity(coupon.useExpiredDate) }}
+                <div
+                  class="coupon-name"
+                  :style="{ color: getCouponTextColor(coupon) }"
+                >
+                  {{ coupon.remark }}
                 </div>
               </div>
             </div>
             <div class="coupon-footer">
+              <div class="coupon-validity">
+                {{ t("coupon.validUntil") }}:
+                {{ formatCouponValidity(coupon.useExpiredDate) }}
+              </div>
               <el-tag size="small" :type="getCouponStatusType(coupon)">{{
                 getCouponStatusText(coupon)
               }}</el-tag>
@@ -184,53 +202,30 @@
       </div>
 
       <!-- 评论区域 -->
-      <div v-show="showComments" class="comments-section">
-        <div class="comments-list">
-          <div
-            v-for="comment in publication.comments"
-            :key="comment._id"
-            class="comment-item"
-          >
-            <el-avatar
-              :size="32"
-              :src="getImageUrl(comment.operator?.avatar, 'small')"
-            />
-            <div class="comment-content">
-              <div class="comment-header">
-                <span class="comment-author">{{ comment.operator?.name }}</span>
-                <span class="comment-time">{{
-                  formatTime(comment.createdAt || "")
-                }}</span>
-              </div>
-              <p class="comment-text">{{ comment.content }}</p>
-            </div>
-            <el-icon
-              v-if="isCommentOwner(comment)"
-              class="delete-comment"
-              @click="handleDeleteComment(comment)"
-            >
-              <Close />
-            </el-icon>
-          </div>
-        </div>
-
-        <div class="comment-input">
-          <el-input
-            v-model="commentText"
-            :placeholder="t('circle.writeComment')"
-            type="text"
-            :maxlength="200"
-            show-word-limit
-            @keyup.enter="handleComment"
-          >
-            <template #append>
-              <el-button @click="handleComment">{{
-                t("circle.send")
-              }}</el-button>
-            </template>
-          </el-input>
-        </div>
+      <div v-if="canComment" v-show="showComments">
+        <CommentSection
+          :comments="publication.comments"
+          :publication-id="publication.id!"
+          :comment-count="publication.commentCount || 0"
+          @open-modal="showCommentModal = true"
+        />
       </div>
+
+      <!-- 评论模态框 -->
+      <el-dialog
+        v-model="showCommentModal"
+        :title="t('circle.comments')"
+        width="500px"
+        class="comment-modal"
+        :append-to-body="true"
+      >
+        <CommentSection
+          :comments="publication.comments"
+          :publication-id="publication.id!"
+          :comment-count="publication.commentCount || 0"
+          :is-modal="true"
+        />
+      </el-dialog>
     </template>
   </div>
 </template>
@@ -257,6 +252,11 @@ import { useUserStore } from "@/store/user";
 import { usePublicationStore } from "@/store/publication";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { UserType } from "@/types";
+import CommentSection from "./CommentSection.vue";
+
+// 导入优惠券背景图
+import normalBg from "@/assets/images/coupon_tendency_normal_bg.png";
+import grayBg from "@/assets/images/coupon_tendency_gray_bg.png";
 
 const props = defineProps<{
   publication: Publication;
@@ -269,7 +269,7 @@ const publicationStore = usePublicationStore();
 const loading = ref(false);
 const expanded = ref(false);
 const showComments = ref(false);
-const commentText = ref("");
+const showCommentModal = ref(false);
 
 // 是否是发布者
 const isOwner = computed(() => {
@@ -322,57 +322,6 @@ const handleLike = async () => {
   } catch (error) {
     console.error("Failed to like publication:", error);
     ElMessage.error(t("circle.likeFailed"));
-  }
-};
-
-// 处理评论
-const handleComment = async () => {
-  if (!commentText.value.trim()) return;
-
-  try {
-    loading.value = true;
-    await publicationStore.commentPublication({
-      publicationId: props.publication.id!,
-      content: commentText.value,
-    });
-    commentText.value = "";
-    ElMessage.success(t("circle.commentSuccess"));
-  } catch (error) {
-    console.error("Failed to comment:", error);
-    ElMessage.error(t("circle.commentFailed"));
-  } finally {
-    loading.value = false;
-  }
-};
-
-// 判断是否是评论作者
-const isCommentOwner = (comment: Comment) => {
-  return comment.operatorId === userStore.currentUser?.id;
-};
-
-// 删除评论
-const handleDeleteComment = async (comment: Comment) => {
-  try {
-    await ElMessageBox.confirm(
-      t("circle.deleteCommentConfirm"),
-      t("common.warning"),
-      {
-        type: "warning",
-      }
-    );
-
-    loading.value = true;
-    await publicationStore.deleteComment({
-      publicationActivityId: comment._id!,
-    });
-    ElMessage.success(t("circle.deleteCommentSuccess"));
-  } catch (error) {
-    if (error !== "cancel") {
-      console.error("Failed to delete comment:", error);
-      ElMessage.error(t("circle.deleteCommentFailed"));
-    }
-  } finally {
-    loading.value = false;
   }
 };
 
@@ -463,6 +412,45 @@ const getCouponStatusText = (coupon: Coupon) => {
 const formatCouponValidity = (date?: string) => {
   if (!date) return "";
   return formatTime(date);
+};
+
+// Add these computed properties after other computed properties
+const canComment = computed(() => {
+  return props.publication.contentType !== ContentTypeEnum.Product;
+});
+
+// 获取优惠券背景图
+const getCouponBackground = (coupon: Coupon) => {
+  const now = new Date();
+  const expireDate = coupon.useExpiredDate
+    ? new Date(coupon.useExpiredDate)
+    : null;
+
+  if (
+    coupon.isDeleted ||
+    (expireDate && now > expireDate) ||
+    coupon.useStatus === "used"
+  ) {
+    return `url(${grayBg})`;
+  }
+  return `url(${normalBg})`;
+};
+
+// 获取优惠券文字颜色
+const getCouponTextColor = (coupon: Coupon) => {
+  const now = new Date();
+  const expireDate = coupon.useExpiredDate
+    ? new Date(coupon.useExpiredDate)
+    : null;
+
+  if (
+    coupon.isDeleted ||
+    (expireDate && now > expireDate) ||
+    coupon.useStatus === "used"
+  ) {
+    return "var(--el-text-color-secondary)";
+  }
+  return "#fff"; // 有效优惠券使用白色文字
 };
 </script>
 
@@ -557,6 +545,7 @@ const formatCouponValidity = (date?: string) => {
         .el-image {
           aspect-ratio: 16/9;
           max-height: 400px;
+          width: 100%;
         }
       }
 
@@ -565,6 +554,7 @@ const formatCouponValidity = (date?: string) => {
 
         .el-image {
           aspect-ratio: 1;
+          width: 100%;
         }
       }
 
@@ -573,6 +563,7 @@ const formatCouponValidity = (date?: string) => {
 
         .el-image {
           aspect-ratio: 1;
+          width: 100%;
         }
       }
 
@@ -582,6 +573,7 @@ const formatCouponValidity = (date?: string) => {
 
         .el-image {
           aspect-ratio: 1;
+          width: 100%;
         }
       }
 
@@ -590,6 +582,7 @@ const formatCouponValidity = (date?: string) => {
 
         .el-image {
           aspect-ratio: 1;
+          width: 100%;
         }
       }
 
@@ -691,16 +684,11 @@ const formatCouponValidity = (date?: string) => {
         .coupon-content {
           display: flex;
           padding: 16px;
-          background: linear-gradient(
-            135deg,
-            var(--el-color-primary-light-9) 0%,
-            var(--el-color-primary-light-8) 100%
-          );
+          min-height: 120px;
 
           .coupon-amount {
             display: flex;
             align-items: baseline;
-            color: var(--el-color-primary);
             margin-right: 16px;
             flex-shrink: 0;
 
@@ -722,7 +710,6 @@ const formatCouponValidity = (date?: string) => {
             .coupon-name {
               font-size: 16px;
               font-weight: 500;
-              color: var(--el-text-color-primary);
               margin-bottom: 4px;
               display: -webkit-box;
               -webkit-line-clamp: 2;
@@ -731,11 +718,6 @@ const formatCouponValidity = (date?: string) => {
               word-break: break-word;
               line-height: 1.3;
             }
-
-            .coupon-validity {
-              font-size: 12px;
-              color: var(--el-text-color-secondary);
-            }
           }
         }
 
@@ -743,7 +725,13 @@ const formatCouponValidity = (date?: string) => {
           padding: 8px 16px;
           border-top: 1px solid var(--el-border-color-lighter);
           display: flex;
-          justify-content: flex-end;
+          align-items: center;
+          justify-content: space-between;
+
+          .coupon-validity {
+            font-size: 12px;
+            color: var(--el-text-color-secondary);
+          }
         }
       }
     }
@@ -751,23 +739,22 @@ const formatCouponValidity = (date?: string) => {
 
   .card-footer {
     display: flex;
-    align-items: center;
+    align-items: center; /* 垂直居中 */
     justify-content: space-around;
-    padding: 12px 0;
+    padding: 0px 16px; /* 合并 padding 声明 */
     border-top: 1px solid var(--el-border-color-lighter);
-    margin: 0 -16px;
-    padding: 0 16px;
+    /* 移除 margin: 0 -16px */
 
     .action-item {
       display: flex;
-      align-items: center;
+      align-items: center; /* 确保内部元素垂直居中 */
       gap: 6px;
-      padding: 8px 16px;
       border-radius: 20px;
       cursor: pointer;
       transition: all 0.2s ease;
       color: var(--el-text-color-regular);
       font-size: 14px;
+      line-height: 1; /* 统一行高 */
 
       &:hover {
         background: var(--el-fill-color-light);
@@ -779,6 +766,7 @@ const formatCouponValidity = (date?: string) => {
 
       .el-icon {
         font-size: 16px;
+        position: relative;
       }
     }
 
@@ -957,5 +945,143 @@ const formatCouponValidity = (date?: string) => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.view-more-comments {
+  text-align: center;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+}
+
+.comment-modal {
+  :deep(.el-dialog__body) {
+    padding: 0;
+  }
+
+  .modal-comments-list {
+    max-height: 400px;
+    overflow-y: auto;
+    padding: 20px;
+
+    .comment-item {
+      // Reuse existing comment-item styles
+      display: flex;
+      align-items: flex-start;
+      padding: 8px 0;
+      position: relative;
+
+      &:not(:last-child) {
+        border-bottom: 1px solid var(--el-border-color-lighter);
+      }
+
+      // ... rest of comment-item styles ...
+    }
+  }
+
+  .modal-comment-input {
+    padding: 20px;
+    border-top: 1px solid var(--el-border-color-lighter);
+  }
+}
+
+.comment-actions {
+  margin-top: 4px;
+
+  .el-button {
+    padding: 0;
+    height: auto;
+    font-size: 12px;
+    color: var(--el-text-color-secondary);
+
+    &:hover {
+      color: var(--el-color-primary);
+    }
+  }
+}
+
+.replies-section {
+  margin-top: 8px;
+  margin-left: 16px;
+  padding-left: 16px;
+  border-left: 2px solid var(--el-border-color-lighter);
+
+  .reply-item {
+    display: flex;
+    align-items: flex-start;
+    padding: 8px 0;
+
+    &:not(:last-child) {
+      border-bottom: 1px solid var(--el-border-color-lighter);
+    }
+
+    .reply-content {
+      margin-left: 8px;
+      flex: 1;
+
+      .reply-header {
+        display: flex;
+        align-items: center;
+        margin-bottom: 2px;
+
+        .reply-author {
+          font-weight: 500;
+          font-size: 13px;
+          color: var(--el-text-color-primary);
+        }
+
+        .reply-time {
+          font-size: 12px;
+          color: var(--el-text-color-secondary);
+          margin-left: 8px;
+        }
+      }
+
+      .reply-text {
+        font-size: 13px;
+        line-height: 1.4;
+        color: var(--el-text-color-primary);
+        margin: 0;
+      }
+    }
+  }
+}
+
+.reply-input {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--el-border-color-lighter);
+
+  .reply-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    font-size: 13px;
+    color: var(--el-text-color-secondary);
+  }
+}
+
+:deep(.el-image-viewer__wrapper) {
+  .el-image-viewer__btn {
+    color: #fff;
+
+    i {
+      font-size: 24px;
+    }
+  }
+
+  .el-image-viewer__actions {
+    padding: 20px;
+
+    .el-image-viewer__actions__inner {
+      gap: 20px;
+    }
+  }
+
+  .el-image-viewer__img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+  }
 }
 </style>

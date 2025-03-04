@@ -10,10 +10,9 @@ interface PriceLevel {
 }
 
 // 价格信息
-interface PriceInfo {
+export interface PriceInfo {
   level1: PriceLevel;
 }
-
 // SKU信息
 export interface Sku {
   name: string;
@@ -28,6 +27,14 @@ export interface Sku {
   stockControl: "unlimit" | "notAllowedToBuy" | "needBook" | "unavailable";
   priceInfo: PriceInfo;
   id: string;
+  attribute: string;
+  combinations: Array<{
+    id: string;
+    content: string;
+    name: string;
+  }>;
+  sellAttrContIds: string[];
+  score: number;
   createdAt: string;
   updatedAt: string;
 }

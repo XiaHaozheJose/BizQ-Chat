@@ -12,6 +12,7 @@
         />
         <el-button
           type="primary"
+          v-if="userStore.currentUser?.operatorType === UserType.Shop"
           :icon="Plus"
           class="no-drag publish-btn"
           @click="handlePublish"
@@ -19,12 +20,7 @@
           {{ t("circle.publish") }}
         </el-button>
       </draggable-container>
-      <el-tabs
-        v-model="activeTab"
-        type="border-card"
-        class="circle-tabs"
-        @tab-click="handleTabChange"
-      >
+      <el-tabs v-model="activeTab" type="border-card" class="circle-tabs">
         <el-tab-pane :label="t('circle.nearbyCircle')" name="nearby" />
         <el-tab-pane :label="t('circle.publicCircle')" name="public" />
         <el-tab-pane :label="t('circle.followedCircle')" name="followed" />
@@ -46,24 +42,36 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from "vue";
+import { ref, onMounted, watch, onUnmounted } from "vue";
 import { useI18n } from "vue-i18n";
 import { Search as IconSearch, Plus } from "@element-plus/icons-vue";
 import { usePublicationStore } from "@/store/publication";
 import PublicationList from "@/components/circle/PublicationList.vue";
 import DraggableContainer from "@/components/base/DraggableContainer.vue";
+import { ElMessage } from "element-plus";
+import { useUserStore } from "@/store/user";
+import { UserType } from "@/types";
 
 const { t } = useI18n();
+const userStore = useUserStore();
 const publicationStore = usePublicationStore();
 const activeTab = ref<"nearby" | "public" | "followed">("public");
 const searchText = ref("");
+const searchTimeout = ref<NodeJS.Timeout>();
 
-const handleTabChange = async () => {
-  await publicationStore.loadPublications(activeTab.value, true);
-};
+const loadMore = async () => {
+  if (publicationStore.loading || !publicationStore.hasMore) return;
 
-const loadMore = () => {
-  publicationStore.loadPublications(activeTab.value);
+  try {
+    await publicationStore.loadPublications(
+      activeTab.value,
+      false,
+      searchText.value
+    );
+  } catch (error) {
+    console.error("Failed to load more publications:", error);
+    ElMessage.error(t("circle.loadFailed"));
+  }
 };
 
 const handlePublish = () => {
@@ -71,14 +79,49 @@ const handlePublish = () => {
   console.log("Publish clicked");
 };
 
+const handleSearch = () => {
+  if (searchTimeout.value) {
+    clearTimeout(searchTimeout.value);
+  }
+  console.log("searchText", searchText.value);
+  searchTimeout.value = setTimeout(async () => {
+    await publicationStore.loadPublications(
+      activeTab.value,
+      true,
+      searchText.value
+    );
+  }, 1000);
+};
+
 // 监听搜索文本变化
 watch(searchText, (newValue) => {
-  // TODO: 实现搜索功能
-  console.log("Search text changed:", newValue);
+  console.log("searchText.value", newValue);
+  handleSearch();
 });
 
-onMounted(() => {
-  handleTabChange();
+// 监听 activeTab 变化
+watch(activeTab, async (newTab) => {
+  try {
+    await publicationStore.loadPublications(newTab, true, searchText.value);
+  } catch (error) {
+    console.error("Failed to load publications:", error);
+    ElMessage.error(t("circle.loadFailed"));
+  }
+});
+
+onMounted(async () => {
+  try {
+    await publicationStore.loadPublications("public", true, searchText.value);
+  } catch (error) {
+    console.error("Failed to load initial publications:", error);
+    ElMessage.error(t("circle.loadFailed"));
+  }
+});
+
+onUnmounted(() => {
+  if (searchTimeout.value) {
+    clearTimeout(searchTimeout.value);
+  }
 });
 </script>
 
@@ -110,20 +153,21 @@ onMounted(() => {
     }
 
     .circle-tabs {
-      .el-tabs__header {
+      :deep(.el-tabs__header) {
         margin: 0;
       }
 
-      .el-tabs--border-card > .el-tabs__content {
-        padding: 0px;
+      :deep(.el-tabs__content) {
+        padding: 0 !important;
       }
-      .el-tabs__nav-wrap {
+
+      :deep(.el-tabs__nav-wrap) {
         &::after {
           display: none;
         }
       }
 
-      .el-tabs__nav {
+      :deep(.el-tabs__nav) {
         border: none;
       }
     }

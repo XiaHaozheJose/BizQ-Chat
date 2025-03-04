@@ -79,7 +79,6 @@ const avatar = computed(() => {
 
 const name = computed(() => {
   if (!otherUser.value) {
-    console.warn("No user found for ID:", otherUserId.value);
     return otherUserId.value;
   }
   // 如果remark为空 或者空字符，则显示name，如果name为空，则显示otherUserId
@@ -96,8 +95,6 @@ const formattedTime = computed(() => {
 
 const lastMessagePreview = computed(() => {
   const message = props.conversation.lastMessage;
-  console.log("conversation Id", props.conversation.id);
-  console.log("lastMessagePreview", message);
   if (!message) return "";
   let preview = "";
   switch (message.type) {

@@ -137,6 +137,10 @@ export const DEFAULT_AVATAR =
 export const DEFAULT_SHOP_AVATAR =
   "https://cube.elemecdn.com/9/c2/f0ee8a3c7c9638a54940382568c9dpng.png";
 
+// 默认占位图片, 不是头像默认图
+export const DEFAULT_IMAGE =
+  "https://cube.elemecdn.com/e/fd/0fc7d20532fdaf769a25683617711png.png";
+
 export const getImageUrl = (
   url: string | undefined,
   size: "small" | "medium" | "origin" = "medium",
@@ -146,6 +150,18 @@ export const getImageUrl = (
   if (!url || url === "###") {
     return isShop ? DEFAULT_SHOP_AVATAR : DEFAULT_AVATAR;
   }
+  return `${url}-${size}.jpeg`;
+};
+
+export const getNormalImageUrl = (
+  url: string | undefined,
+  size: "small" | "medium" | "origin" = "medium"
+) => {
+  // url 无效的情况, 比如是###的情况
+  if (!url || url === "###") {
+    return DEFAULT_IMAGE;
+  }
+
   return `${url}-${size}.jpeg`;
 };
 

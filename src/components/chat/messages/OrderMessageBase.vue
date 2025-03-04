@@ -97,7 +97,9 @@ const fetchOrderInfo = async () => {
 
   loading.value = true;
   try {
-    const data = await getOrderDetail(props.message.content);
+    const data = await getOrderDetail({
+      orderId: props.message.content,
+    });
     orderInfo.value = data;
   } catch (error) {
     console.error("Failed to fetch order info:", error);

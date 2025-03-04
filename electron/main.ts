@@ -95,6 +95,8 @@ function createWindow(): void {
     width: 1200,
     height: 800,
     frame: false,
+    minWidth: 800,
+    minHeight: 800,
     titleBarStyle: "hidden",
     trafficLightPosition: { x: 5, y: 5 }, // Adjusted x position for more compact layout
     backgroundColor: "#ffffff", // 设置背景色,避免白闪

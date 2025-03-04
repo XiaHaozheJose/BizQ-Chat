@@ -6,6 +6,7 @@
         <chat-view v-show="currentRoute === '/chat'" />
         <contacts-view v-show="currentRoute === '/contacts'" />
         <circle-view v-show="currentRoute === '/circle'" />
+        <router-view v-show="currentRoute === '/order'" />
       </div>
     </div>
   </div>
@@ -26,6 +27,7 @@ const currentRoute = computed(() => {
   if (path.startsWith("/chat")) return "/chat";
   if (path.startsWith("/contacts")) return "/contacts";
   if (path.startsWith("/circle")) return "/circle";
+  if (path.startsWith("/order")) return "/order";
   return path;
 });
 </script>

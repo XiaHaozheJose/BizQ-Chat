@@ -26,7 +26,7 @@
         :class="{ loading: loadingMore }"
       >
         <el-icon v-if="loadingMore"><Loading /></el-icon>
-        <span v-else>{{ t("chat.loadMore") }}</span>
+        <span v-else>{{ t("common.loadMore") }}</span>
       </div>
 
       <template v-if="!loading">

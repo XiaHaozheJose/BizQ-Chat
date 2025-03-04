@@ -1,9 +1,4 @@
-import type {
-  OrderResponse,
-  OrderListResponse,
-  UpdateOrderParams,
-  Order,
-} from "@/types/order";
+import type { Order, OrdersResponse, OrderStatusLabel } from "@/types/order";
 import api from "./auth";
 
 /**
@@ -16,8 +11,8 @@ export const getOrders = async (params?: {
   limit?: number;
   status?: string;
   search?: string;
-}): Promise<OrderListResponse> => {
-  const response = await api.get<OrderListResponse>("/orders", { params });
+}): Promise<OrdersResponse> => {
+  const response = await api.get<OrdersResponse>("/orders", { params });
   return response.data;
 };
 
@@ -26,9 +21,32 @@ export const getOrders = async (params?: {
  * @param orderId 订单ID
  * @returns 订单详情响应
  */
-export const getOrderDetail = async (orderId: string): Promise<Order> => {
-  const response = await api.get<Order>(`/orders/${orderId}?paymentInfo=true`);
-  return response.data;
+export const getOrderDetail = async (params: {
+  orderId?: string;
+  orderNumber?: string;
+}): Promise<Order> => {
+  const queryParams = new URLSearchParams();
+  queryParams.append("paymentInfo", "true");
+
+  if (params.orderNumber) {
+    queryParams.append("orderNumber", params.orderNumber);
+    const response = await api.get<OrdersResponse>(
+      `orders/?${queryParams.toString()}`
+    );
+    if (response.data.orderHistories.length === 0) {
+      throw new Error("Order not found");
+    }
+    return response.data.orderHistories[0];
+  }
+
+  if (params.orderId) {
+    const response = await api.get<Order>(
+      `orders/${params.orderId}?${queryParams.toString()}`
+    );
+    return response.data;
+  }
+
+  throw new Error("Either orderId or orderNumber must be provided");
 };
 
 /**
@@ -37,33 +55,59 @@ export const getOrderDetail = async (orderId: string): Promise<Order> => {
  * @param data 更新订单参数
  * @returns 订单响应
  */
-export const updateOrder = async (
+export const updateOrder = (
   orderId: string,
-  data: UpdateOrderParams
-): Promise<OrderResponse> => {
-  const response = await api.patch<OrderResponse>(`/orders/${orderId}`, data);
+  data: { skus: Array<{ price: string; quantity: string; skuId: string }> }
+) => {
+  return api.patch<{ orderHistoryId: string }>(`/orders/${orderId}`, data);
+};
+
+export type FetchOrderParams = {
+  status?: OrderStatusLabel[];
+  skip?: number;
+  limit?: number;
+  isActive?: boolean;
+  buyerId?: string;
+  shopId?: string;
+  startDate?: string;
+  endDate?: string;
+  search?: string;
+};
+/**
+ * 获取订单列表
+ * @param params 查询参数
+ * @returns 订单列表响应
+ */
+export const fetchOrders = async (
+  params: FetchOrderParams
+): Promise<OrdersResponse> => {
+  const response = await api.get<OrdersResponse>("orders/", {
+    params: {
+      ...params,
+      populates: ["buyerHandler", "orderDetails", "sellerHandler"],
+    },
+  });
   return response.data;
 };
 
-/**
- * 获取订单状态文本
- * @param status 订单状态
- * @returns 状态文本
- */
-export const getOrderStatusText = (status: string): string => {
-  const statusMap: Record<string, string> = {
-    unconfirmed: "待确认",
-    confirmed: "已确认",
-    checkedOK: "已审核",
-    checkPending: "待审核",
-    checkedError: "审核不通过",
-    departed: "已发货",
-    pickedUp: "已提货",
-    transferPending: "待转运",
-    pickUpPending: "待提货",
-    canceledBySeller: "卖家已取消",
-    canceledByBuyer: "买家已取消",
-    canceled: "已取消",
-  };
-  return statusMap[status] || status;
+export const confirmOrder = (orderId: string) => {
+  return api.patch<{ orderHistoryId: string }>(`/orders/status/${orderId}`, {
+    status: "confirmed",
+  });
+};
+
+export function cancelOrder(orderId: string) {
+  return api.patch<{ orderHistoryId: string }>(`/orders/status/${orderId}`, {
+    status: "canceled",
+  });
+}
+
+export const lockOrder = (orderId: string) => {
+  return api.patch(`/orders/lock-status/${orderId}`, { lockStatus: "lock" });
+};
+
+export const unlockOrder = (orderId: string) => {
+  return api.patch(`/orders/lock-status/${orderId}`, {
+    lockStatus: "unlock",
+  });
 };

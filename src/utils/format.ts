@@ -1,10 +1,44 @@
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
+import i18n from "@/i18n";
+import { watch } from "vue";
+
+// 导入所有支持的语言包
 import "dayjs/locale/zh-cn";
+import "dayjs/locale/en";
+import "dayjs/locale/es";
+import "dayjs/locale/pt";
+import "dayjs/locale/fr";
 
 // 配置dayjs
 dayjs.extend(relativeTime);
-dayjs.locale("zh-cn");
+
+// 语言映射
+const localeMap: Record<string, string> = {
+  "zh-CN": "zh-cn",
+  "en-US": "en",
+  "es-ES": "es",
+  "pt-PT": "pt",
+  "fr-FR": "fr",
+};
+
+// 设置dayjs的语言
+const setDayjsLocale = () => {
+  const currentLocale = i18n.global.locale.value;
+  const dayjsLocale = localeMap[currentLocale] || "en";
+  dayjs.locale(dayjsLocale);
+};
+
+// 初始设置语言
+setDayjsLocale();
+
+// 监听i18n语言变化
+watch(
+  () => i18n.global.locale.value,
+  () => {
+    setDayjsLocale();
+  }
+);
 
 /**
  * 格式化时间为相对时间

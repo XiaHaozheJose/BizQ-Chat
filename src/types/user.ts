@@ -1,27 +1,12 @@
 // 用户类型枚举
-export enum UserType {
-  User = "user",
-  Shop = "shop",
-}
+
+import { BusinessPublicStatus, ShopType, UserType } from ".";
 
 export enum UserStatus {
   ok = "ok",
   normal = "normal",
 }
 
-// 商家类型枚举
-export enum BusinessType {
-  Retailer = "Retailer",
-  Manufacturer = "Manufacturer",
-  Wholesaler = "Wholesaler",
-}
-
-// 访问权限类型
-export enum AccessType {
-  Public = "public",
-  Private = "private",
-  NoShowPrice = "noShowPrice",
-}
 // 预留权限类型
 export interface Permission {
   code: string;
@@ -46,7 +31,7 @@ export interface BaseUser {
   logo?: string;
   isShop: boolean;
   operatorType: UserType;
-  publicStatus?: AccessType;
+  publicStatus?: BusinessPublicStatus;
   email?: string;
   phone: string;
   areaCode: string;
@@ -64,7 +49,7 @@ export interface BaseUser {
 
 // 普通用户
 export interface User extends BaseUser {
-  operatorType: UserType.User;
+  operatorType: UserType;
   myshops?: Business[];
   mood?: string;
   description?: string;
@@ -76,7 +61,7 @@ export interface User extends BaseUser {
 // 商家用户
 export interface Business extends BaseUser {
   operatorType: UserType.Shop;
-  type: BusinessType;
+  type: ShopType;
   industries?: string[];
   industriesDetail?: IndustryContent[];
   city?: string;

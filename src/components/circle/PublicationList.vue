@@ -1,10 +1,6 @@
 <template>
   <div class="publication-list-container">
-    <el-scrollbar
-      ref="scrollbarRef"
-      class="publication-list"
-      @scroll="handleScroll"
-    >
+    <div ref="scrollbarRef" class="publication-list" @scroll="onScroll">
       <div class="list-content">
         <publication-card
           v-for="publication in publications"
@@ -21,7 +17,10 @@
         </div>
 
         <!-- 无更多数据 -->
-        <div v-if="!hasMore && !loading" class="no-more">
+        <div
+          v-if="!hasMore && !loading && publications.length > 0"
+          class="no-more"
+        >
           {{ t("common.noMore") }}
         </div>
 
@@ -32,23 +31,22 @@
           </div>
         </template>
       </div>
-    </el-scrollbar>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { defineProps, defineEmits, ref } from "vue";
+import { defineProps, defineEmits, ref, onMounted, onUnmounted } from "vue";
 import { useI18n } from "vue-i18n";
 import { Loading } from "@element-plus/icons-vue";
 import type { Publication } from "@/types";
-import type { ScrollbarInstance } from "element-plus";
 import PublicationCard from "./PublicationCard.vue";
 import { throttle } from "@/utils";
 
 const { t } = useI18n();
-const scrollbarRef = ref<ScrollbarInstance>();
+const scrollbarRef = ref<HTMLElement>();
 
-defineProps<{
+const props = defineProps<{
   publications: Publication[];
   loading: boolean;
   hasMore: boolean;
@@ -58,18 +56,58 @@ const emit = defineEmits<{
   (e: "loadMore"): void;
 }>();
 
+// 检查是否应该加载更多
+const shouldLoadMore = (element: HTMLElement) => {
+  const { scrollHeight, scrollTop, clientHeight } = element;
+  // 当滚动到底部或接近底部时触发
+  return scrollHeight - scrollTop - clientHeight <= 100;
+};
+
 // 处理滚动加载
 const handleScroll = throttle(() => {
-  const wrap = scrollbarRef.value?.wrap;
-  if (!wrap) return;
+  const wrap = scrollbarRef.value;
+  if (!wrap || props.loading || !props.hasMore) return;
 
-  const { scrollHeight, scrollTop, clientHeight } = wrap;
-
-  // 当距离底部小于50px时触发加载
-  if (scrollHeight - scrollTop - clientHeight < 50) {
+  if (shouldLoadMore(wrap)) {
     emit("loadMore");
   }
-}, 200);
+}, 100); // 降低节流时间以提高响应性
+
+// 处理触底检测
+const handleScrollEnd = () => {
+  const wrap = scrollbarRef.value;
+  if (!wrap || props.loading || !props.hasMore) return;
+
+  // 如果已经滚动到底部，立即触发加载
+  if (shouldLoadMore(wrap)) {
+    emit("loadMore");
+  }
+};
+
+// 监听滚动结束
+let scrollTimeout: NodeJS.Timeout;
+const onScroll = () => {
+  handleScroll();
+
+  // 清除之前的定时器
+  clearTimeout(scrollTimeout);
+
+  // 设置新的定时器，检测滚动是否结束
+  scrollTimeout = setTimeout(() => {
+    handleScrollEnd();
+  }, 150);
+};
+
+onMounted(() => {
+  // 初始检查是否需要加载更多
+  setTimeout(() => {
+    handleScrollEnd();
+  }, 500);
+});
+
+onUnmounted(() => {
+  clearTimeout(scrollTimeout);
+});
 </script>
 
 <style lang="scss" scoped>
@@ -77,9 +115,11 @@ const handleScroll = throttle(() => {
   height: 100%;
   position: relative;
   padding: 0 10px;
+  overflow: hidden;
 
   .publication-list {
     height: 100%;
+    overflow: auto;
 
     .list-content {
       padding: 10px 0;
@@ -97,14 +137,14 @@ const handleScroll = throttle(() => {
     left: 50%;
     transform: translateX(-50%);
     z-index: 1000;
+    background: rgba(0, 0, 0, 0.6);
+    border-radius: 20px;
+    padding: 8px 16px;
 
     .loading-content {
       display: flex;
       align-items: center;
       gap: 8px;
-      padding: 8px 16px;
-      background: rgba(0, 0, 0, 0.6);
-      border-radius: 20px;
       color: #fff;
       font-size: 14px;
 
@@ -146,5 +186,10 @@ const handleScroll = throttle(() => {
       border-radius: 3px;
     }
   }
+}
+
+// Override Element Plus tab content padding
+:deep(.el-tabs--border-card > .el-tabs__content) {
+  padding: 0;
 }
 </style>

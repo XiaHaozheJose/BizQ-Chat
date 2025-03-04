@@ -1,10 +1,13 @@
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
 import { publicationApi } from "@/services/api/publication";
-import { Publication, PublicationQueryParams, BusinessType } from "@/types";
+import type { Publication, PublicationQueryParams, Comment } from "@/types";
+import { BusinessType } from "@/types";
 import { PublicType } from "@/types/publications";
 import { useUserStore } from "./user";
 import { getCurrentPosition } from "@/utils";
+import { ElMessage } from "element-plus";
+import { useI18n } from "vue-i18n";
 
 export const usePublicationStore = defineStore("publication", () => {
   const publications = ref<Publication[]>([]);
@@ -14,6 +17,7 @@ export const usePublicationStore = defineStore("publication", () => {
   const pageSize = 10;
 
   const userStore = useUserStore();
+  const { t } = useI18n();
 
   // 根据用户类型获取商家类型
   const shopTypes = computed<BusinessType[]>(() => {
@@ -27,10 +31,68 @@ export const usePublicationStore = defineStore("publication", () => {
     return [BusinessType.Wholesaler, BusinessType.Manufacturer];
   });
 
+  // Add this helper function to organize comments hierarchically
+  const organizeComments = (comments: Comment[]): Comment[] => {
+    const commentMap = new Map<string, Comment>();
+    const rootComments: Comment[] = [];
+
+    // First pass: collect all comments in a map
+    comments.forEach((comment) => {
+      const commentId = comment.id || comment._id;
+      if (commentId) {
+        commentMap.set(commentId, { ...comment, replies: [] });
+      }
+    });
+
+    // Second pass: organize into hierarchy
+    comments.forEach((comment) => {
+      const commentId = comment.id || comment._id;
+      if (commentId) {
+        if (comment.originComment?.id) {
+          // This is a reply
+          const parentComment = commentMap.get(comment.originComment.id);
+          if (parentComment) {
+            if (!parentComment.replies) {
+              parentComment.replies = [];
+            }
+            parentComment.replies.push(commentMap.get(commentId)!);
+          }
+        } else {
+          // This is a root comment
+          rootComments.push(commentMap.get(commentId)!);
+        }
+      }
+    });
+
+    return JSON.parse(JSON.stringify(rootComments)); // Ensure complete reactivity
+  };
+
+  // Add this helper function to find and update a comment in the publication
+  const findAndUpdateComment = (
+    comments: Comment[],
+    commentId: string,
+    updateFn: (comment: Comment) => Comment
+  ): Comment[] => {
+    return comments.map((comment) => {
+      const currentId = comment.id || comment._id;
+      if (currentId === commentId) {
+        return updateFn(comment);
+      }
+      if (comment.replies?.length) {
+        return {
+          ...comment,
+          replies: findAndUpdateComment(comment.replies, commentId, updateFn),
+        };
+      }
+      return comment;
+    });
+  };
+
   // 加载动态圈数据
   const loadPublications = async (
     type: "nearby" | "followed" | "public",
-    refresh = false
+    refresh = false,
+    searchText = ""
   ) => {
     if (loading.value || (!refresh && !hasMore.value)) return;
 
@@ -51,14 +113,27 @@ export const usePublicationStore = defineStore("publication", () => {
         shopType: shopTypes.value,
       };
 
+      // 添加搜索参数
+      if (searchText) {
+        params.search = searchText;
+      }
+
       // 根据类型添加额外参数
       if (type === "nearby") {
-        const position = await getCurrentPosition();
-        Object.assign(params, {
-          lat: position.latitude,
-          lon: position.longitude,
-          sort: ["updatedAt_desc", "distance_asc"],
-        });
+        try {
+          const position = await getCurrentPosition();
+          Object.assign(params, {
+            lat: position.latitude,
+            lon: position.longitude,
+            sort: ["updatedAt_desc", "distance_asc"],
+          });
+        } catch (error) {
+          // 使用默认排序，不考虑距离
+          Object.assign(params, {
+            sort: ["updatedAt_desc"],
+          });
+          ElMessage.warning(t("circle.locationNotAvailable"));
+        }
       } else if (type === "followed") {
         Object.assign(params, {
           followed: true,
@@ -76,15 +151,21 @@ export const usePublicationStore = defineStore("publication", () => {
           ? publicationApi.getFollowedPublications(params)
           : publicationApi.getPublicPublications(params));
 
-      publications.value = refresh
-        ? response.publications
-        : [...publications.value, ...response.publications];
+      const newPublications =
+        response.publications?.map((pub) => ({
+          ...pub,
+          comments: pub.comments ? organizeComments(pub.comments) : [],
+        })) ?? [];
 
-      hasMore.value = response.publications.length === pageSize;
+      publications.value = refresh
+        ? newPublications
+        : [...publications.value, ...newPublications];
+
+      // 使用接口返回的currentPageHasMoreData来判断是否还有更多数据
+      hasMore.value = response.currentPageHasMoreData ?? false;
       currentPage.value++;
     } catch (error) {
-      console.error("Failed to load publications:", error);
-      throw error;
+      ElMessage.error(t("circle.loadFailed"));
     } finally {
       loading.value = false;
     }
@@ -138,43 +219,53 @@ export const usePublicationStore = defineStore("publication", () => {
 
       return data;
     } catch (error) {
-      console.error("Failed to like publication:", error);
+      ElMessage.error(t("circle.likeFailed"));
       throw error;
     }
   };
 
   // 发表评论
   const commentPublication = async (data: {
-    publicationId: string;
     content: string;
+    publicationId: string;
     publicationActivityId?: string;
   }) => {
     try {
       const response = await publicationApi.commentPublication(data);
 
-      // 更新本地状态
-      const index = publications.value.findIndex(
+      // Find the publication and update its comments
+      const publicationIndex = publications.value.findIndex(
         (p) => p.id === data.publicationId
       );
-      if (index !== -1) {
-        const publication = publications.value[index];
+
+      if (publicationIndex > -1) {
+        const publication = { ...publications.value[publicationIndex] };
+        const newComment = response.data as Comment;
+
+        if (data.publicationActivityId) {
+          // This is a reply
+          const comments = [...(publication.comments || []), newComment];
+          publication.comments = organizeComments(comments);
+        } else {
+          // This is a new root comment
+          publication.comments = [
+            ...(publication.comments || []),
+            { ...newComment, replies: [] },
+          ];
+        }
+
+        // Update comment count
         publication.commentCount = (publication.commentCount || 0) + 1;
-        publication.comments = [
-          ...(publication.comments || []),
-          {
-            ...response.data,
-            operator: userStore.currentUser,
-            operatorId: userStore.currentUser?.id,
-            operatorType: userStore.currentUser?.operatorType,
-            content: data.content,
-            createdAt: new Date().toISOString(),
-          },
-        ];
+
+        // Create a new array to trigger reactivity
+        const newPublications = [...publications.value];
+        newPublications[publicationIndex] = publication;
+        publications.value = newPublications;
       }
 
       return response.data;
     } catch (error) {
-      console.error("Failed to comment publication:", error);
+      ElMessage.error(t("circle.commentFailed"));
       throw error;
     }
   };
@@ -184,20 +275,147 @@ export const usePublicationStore = defineStore("publication", () => {
     try {
       await publicationApi.deleteComment(data);
 
-      // 更新本地状态
+      // Find and update the publication
       const publicationIndex = publications.value.findIndex((p) =>
-        p.comments?.some((c) => c._id === data.publicationActivityId)
+        p.comments?.some(
+          (c) =>
+            c._id === data.publicationActivityId ||
+            c.id === data.publicationActivityId ||
+            c.replies?.some(
+              (r) =>
+                r._id === data.publicationActivityId ||
+                r.id === data.publicationActivityId
+            )
+        )
       );
 
-      if (publicationIndex !== -1) {
-        const publication = publications.value[publicationIndex];
-        publication.commentCount = (publication.commentCount || 0) - 1;
-        publication.comments = publication.comments?.filter(
-          (c) => c._id !== data.publicationActivityId
+      if (publicationIndex > -1) {
+        const publication = { ...publications.value[publicationIndex] };
+
+        // Remove the comment and reorganize
+        const allComments = (publication.comments || []).reduce(
+          (acc, comment) => {
+            if (
+              comment._id !== data.publicationActivityId &&
+              comment.id !== data.publicationActivityId
+            ) {
+              const replies = (comment.replies || []).filter(
+                (r) =>
+                  r._id !== data.publicationActivityId &&
+                  r.id !== data.publicationActivityId
+              );
+              acc.push({ ...comment, replies });
+            }
+            return acc;
+          },
+          [] as Comment[]
         );
+
+        publication.comments = allComments;
+        publication.commentCount = Math.max(
+          (publication.commentCount || 0) - 1,
+          0
+        );
+
+        // Create a new array to trigger reactivity
+        const newPublications = [...publications.value];
+        newPublications[publicationIndex] = publication;
+        publications.value = newPublications;
       }
     } catch (error) {
-      console.error("Failed to delete comment:", error);
+      ElMessage.error(t("circle.deleteCommentFailed"));
+      throw error;
+    }
+  };
+
+  // 获取所有评论
+  const getComments = async (publicationId: string) => {
+    try {
+      const { data } = await publicationApi.getComments({ publicationId });
+
+      // Find and update the publication
+      const publicationIndex = publications.value.findIndex(
+        (p) => p.id === publicationId
+      );
+
+      if (publicationIndex > -1) {
+        // Create a deep copy of the publication
+        const publication = JSON.parse(
+          JSON.stringify(publications.value[publicationIndex])
+        );
+
+        // Organize comments and ensure we have a new array
+        const organizedComments = organizeComments(
+          data.publicationActivities || []
+        );
+
+        // Assign the organized comments to the publication
+        publication.comments = organizedComments;
+
+        // Create a new array with the updated publication
+        const newPublications = [...publications.value];
+        newPublications[publicationIndex] = publication;
+
+        // Update the store
+        publications.value = newPublications;
+      }
+
+      return data.publicationActivities;
+    } catch (error) {
+      ElMessage.error(t("circle.getCommentsFailed"));
+      throw error;
+    }
+  };
+
+  // 点赞评论
+  const likeComment = async (data: {
+    publicationActivityId: string;
+    publicationId: string;
+  }) => {
+    try {
+      await publicationApi.likeComment({
+        publicationActivityId: data.publicationActivityId,
+        publicationId: data.publicationId,
+      });
+
+      // Find and update the publication
+      const publicationIndex = publications.value.findIndex(
+        (p) => p.id === data.publicationId
+      );
+
+      if (publicationIndex > -1) {
+        const publication = { ...publications.value[publicationIndex] };
+
+        // Update the comment's like status
+        publication.comments = findAndUpdateComment(
+          publication.comments || [],
+          data.publicationActivityId,
+          (comment) => {
+            if (comment.iLiked) {
+              // Unlike
+              return {
+                ...comment,
+                iLiked: false,
+                likeCount: Math.max(0, (comment.likeCount || 1) - 1),
+              };
+            } else {
+              // Like
+              return {
+                ...comment,
+                iLiked: true,
+                likeCount: (comment.likeCount || 0) + 1,
+              };
+            }
+          }
+        );
+
+        // Create a new array to trigger reactivity
+        const newPublications = [...publications.value];
+        newPublications[publicationIndex] = publication;
+        publications.value = newPublications;
+      }
+    } catch (error) {
+      ElMessage.error(t("circle.likeCommentFailed"));
       throw error;
     }
   };
@@ -210,5 +428,7 @@ export const usePublicationStore = defineStore("publication", () => {
     likePublication,
     commentPublication,
     deleteComment,
+    getComments,
+    likeComment,
   };
 });

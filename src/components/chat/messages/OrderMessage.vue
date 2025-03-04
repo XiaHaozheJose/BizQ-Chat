@@ -53,11 +53,10 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from "vue";
 import type { Message } from "@/types";
-import { OrderStatus } from "@/types/order";
-import { getOrderStatusText } from "@/services/api/order";
 import { useUserStore } from "@/store/user";
 import OrderMessageBase from "./OrderMessageBase.vue";
 import { useI18n } from "vue-i18n";
+import { OrderLastEditedBy } from "@/types/order";
 
 const props = defineProps<{
   message: Message;
@@ -74,7 +73,7 @@ const orderInfo = computed(() => orderMessageRef.value?.orderInfo);
 
 // 获取状态文本
 const getStatusText = (status: string) => {
-  return getOrderStatusText(status);
+  return t(`order.${status}`);
 };
 
 // 计算是否显示状态栏
@@ -91,8 +90,9 @@ const needAction = computed(() => {
   if (!orderInfo.value || !userStore.currentUser) return false;
   const isCurrentShop = orderInfo.value.shopId === userStore.currentUser.id;
   return (
-    (orderInfo.value.lastEditedBy === "seller" && !isCurrentShop) ||
-    (orderInfo.value.lastEditedBy === "buyer" && isCurrentShop)
+    (orderInfo.value.lastEditedBy === OrderLastEditedBy.Seller &&
+      !isCurrentShop) ||
+    (orderInfo.value.lastEditedBy === OrderLastEditedBy.Buyer && isCurrentShop)
   );
 });
 

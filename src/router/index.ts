@@ -53,15 +53,40 @@ const constantRoutes: RouteRecordRaw[] = [
           requiresAuth: true,
         },
       },
+      {
+        path: "order",
+        name: "order",
+        component: () => import("@/views/order/OrderLayout.vue"),
+        meta: {
+          title: "订单管理",
+          icon: "order",
+          requiresAuth: true,
+        },
+        children: [
+          {
+            path: "",
+            redirect: "/order/my",
+          },
+          {
+            path: "my",
+            component: () => import("@/views/order/MyOrders.vue"),
+            meta: {
+              title: "我的订单",
+            },
+          },
+          {
+            path: "customer",
+            component: () => import("@/views/order/CustomerOrders.vue"),
+            meta: {
+              title: "客户订单",
+            },
+          },
+        ],
+      },
     ],
     meta: {
       requiresAuth: true,
     },
-  },
-  {
-    path: "/screenshot",
-    name: "screenshot",
-    component: () => import("@/views/screenshot/index.vue"),
   },
 ];
 

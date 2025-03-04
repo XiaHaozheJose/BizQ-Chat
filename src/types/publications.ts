@@ -14,6 +14,7 @@ export interface PublicationQueryParams {
   lat?: number;
   lon?: number;
   sort?: string[];
+  search?: string;
 }
 
 export interface Publications {
@@ -50,17 +51,25 @@ export interface Publication {
   couponIdsArr?: string[];
   id?: string;
 }
+
 export interface Comment {
   operator?: User;
+  toOperator?: User;
   _id?: string;
+  id?: string;
   isDeleted?: boolean;
   content?: string;
-  type?: string;
+  type?: PublicationActivityType;
   publicationId?: string;
   operatorType?: UserType;
   operatorId?: string;
   createdAt?: string;
   updatedAt?: string;
+  originComment?: Comment;
+  publicationActivityId?: string;
+  replies?: Comment[];
+  iLiked?: boolean;
+  likeCount?: number;
 }
 
 export interface Banner {
