@@ -4,8 +4,8 @@
     <div class="order-header">
       <div class="order-id">
         {{ order.orderNumber }}
-        <el-tag size="small" :type="getStatusType(order.status)">
-          {{ getStatusLabel(order.status) }}
+        <el-tag :type="getStatusType(order.status)">
+          {{ t(getStatusKey(order.status)) }}
         </el-tag>
       </div>
       <div class="order-actions">
@@ -38,8 +38,27 @@
               {{ getSkuAttributes(sku, detail) }}
             </div>
           </div>
-          <div class="product-price">€{{ sku.price.toFixed(2) }}</div>
-          <div class="product-quantity">x{{ sku.quantity }}</div>
+          <div class="product-price">
+            €{{ sku.price.toFixed(2) }}
+            <s
+              v-if="sku.priceBefore !== null && sku.priceBefore !== sku.price"
+              class="previous-value"
+            >
+              €{{ sku.priceBefore?.toFixed(2) }}
+            </s>
+          </div>
+          <div class="product-quantity">
+            x{{ sku.quantity }}
+            <s
+              v-if="
+                sku.quantityBefore !== null &&
+                sku.quantityBefore !== sku.quantity
+              "
+              class="previous-value"
+            >
+              x{{ sku.quantityBefore }}
+            </s>
+          </div>
           <div class="product-total">
             €{{ (sku.price * sku.quantity).toFixed(2) }}
           </div>
@@ -87,11 +106,17 @@
 </template>
 
 <script setup lang="ts">
-import { Order, OrderStatus, OrderDetail, OrderSku } from "@/types/order";
-import { DEFAULT_SHOP_AVATAR, getImageUrl, getNormalImageUrl } from "@/utils";
+import { Order, OrderDetail, OrderSku } from "@/types/order";
+import {
+  DEFAULT_SHOP_AVATAR,
+  getImageUrl,
+  getNormalImageUrl,
+  formatDate,
+} from "@/utils";
 import { useI18n } from "vue-i18n";
 import { useUserStore } from "@/store/user";
 import { UserType } from "@/types";
+import { getStatusType, getStatusKey } from "@/utils/order";
 
 const props = defineProps<{
   order: Order;
@@ -99,51 +124,6 @@ const props = defineProps<{
 
 const { t } = useI18n();
 const userStore = useUserStore();
-
-// 获取状态样式
-const getStatusType = (status: OrderStatus) => {
-  const statusMap: Record<string, string> = {
-    [OrderStatus.UNCONFIRMED]: "warning",
-    [OrderStatus.CONFIRMED]: "success",
-    [OrderStatus.CHECKED_OK]: "success",
-    [OrderStatus.CHECK_PENDING]: "warning",
-    [OrderStatus.CHECKED_ERROR]: "danger",
-    [OrderStatus.DEPARTED]: "primary",
-    [OrderStatus.PICKED_UP]: "success",
-    [OrderStatus.TRANSFER_PENDING]: "warning",
-    [OrderStatus.PICKUP_PENDING]: "warning",
-    [OrderStatus.CANCELED_BY_SELLER]: "info",
-    [OrderStatus.CANCELED_BY_BUYER]: "info",
-    [OrderStatus.CANCELED]: "info",
-  };
-  return statusMap[status] || "info";
-};
-
-// 获取状态标签
-const getStatusLabel = (status: OrderStatus) => {
-  const statusMap: Record<string, string> = {
-    [OrderStatus.UNCONFIRMED]: t("order.unconfirmed"),
-    [OrderStatus.CONFIRMED]: t("order.confirmed"),
-    [OrderStatus.CHECKED_OK]: t("order.checkedOk"),
-    [OrderStatus.CHECK_PENDING]: t("order.checkPending"),
-    [OrderStatus.CHECKED_ERROR]: t("order.checkedError"),
-    [OrderStatus.DEPARTED]: t("order.departed"),
-    [OrderStatus.PICKED_UP]: t("order.pickedUp"),
-    [OrderStatus.TRANSFER_PENDING]: t("order.transferPending"),
-    [OrderStatus.PICKUP_PENDING]: t("order.pickupPending"),
-    [OrderStatus.CANCELED_BY_SELLER]: t("order.canceledBySeller"),
-    [OrderStatus.CANCELED_BY_BUYER]: t("order.canceledByBuyer"),
-    [OrderStatus.CANCELED]: t("order.canceled"),
-  };
-  return statusMap[status] || status;
-};
-
-// 格式化日期
-const formatDate = (dateString: string) => {
-  if (!dateString) return "";
-  const date = new Date(dateString);
-  return `${date.getFullYear()}/${(date.getMonth() + 1).toString().padStart(2, "0")}/${date.getDate().toString().padStart(2, "0")} ${date.getHours().toString().padStart(2, "0")}:${date.getMinutes().toString().padStart(2, "0")}:${date.getSeconds().toString().padStart(2, "0")}`;
-};
 
 // 获取SKU属性
 const getSkuAttributes = (sku: OrderSku, detail: OrderDetail) => {
@@ -172,57 +152,58 @@ const getSkuAttributes = (sku: OrderSku, detail: OrderDetail) => {
   }
 };
 
-// 计算订单总数量
-const calculateTotalQuantity = (order: Order) => {
-  return order.orderDetails.reduce((sum, detail) => {
-    return sum + detail.skus.reduce((skuSum, sku) => skuSum + sku.quantity, 0);
-  }, 0);
-};
-
-// 计算订单总价
-const calculateOrderTotal = (order: Order) => {
-  const productTotal = order.orderDetails.reduce((sum, detail) => {
-    return (
-      sum +
-      detail.skus.reduce((skuSum, sku) => skuSum + sku.price * sku.quantity, 0)
-    );
-  }, 0);
-
-  const shipCost = order.shipCostNoTax || 0;
-
-  return productTotal + shipCost;
-};
-
-const isSeller = () => {
-  const myId = userStore.currentUser?.id;
-  return props.order.sellerHandler?.id === myId;
-};
-
-// 获取卖家名称
-const getSellerName = () => {
-  return props.order.sellerHandler?.name || props.order.shopName || "";
+// 获取买家头像
+const getBuyerAvatar = () => {
+  const avatar =
+    props.order.buyerHandler.headImg || props.order.buyerHandler.logo;
+  return getImageUrl(
+    avatar,
+    "medium",
+    props.order.buyerHandler.operatorType === UserType.Shop
+  );
 };
 
 // 获取卖家头像
 const getSellerAvatar = () => {
-  const logo = props.order.sellerHandler?.logo || props.order.shopLogo;
-  if (logo) {
-    return getImageUrl(logo, "small", true);
-  }
-  return DEFAULT_SHOP_AVATAR;
+  return getImageUrl(props.order.shopLogo, "medium", true);
 };
 
+// 获取买家名称
 const getBuyerName = () => {
-  return props.order.buyerHandler?.name || "";
+  return props.order.buyerHandler.name;
 };
 
-const getBuyerAvatar = () => {
-  const avatar =
-    props.order.buyerHandler?.headImg || props.order.buyerHandler.logo || "";
-  if (avatar) {
-    return getImageUrl(avatar, "small", true);
-  }
-  return DEFAULT_SHOP_AVATAR;
+// 获取卖家名称
+const getSellerName = () => {
+  return props.order.shopName;
+};
+
+// 是否是卖家
+const isSeller = () => {
+  return props.order.sellerHandler?.id === userStore.currentUser?.id;
+};
+
+// 计算订单总数量
+const calculateTotalQuantity = (order: Order) => {
+  return order.orderDetails.reduce((total, detail) => {
+    return (
+      total + detail.skus.reduce((skuTotal, sku) => skuTotal + sku.quantity, 0)
+    );
+  }, 0);
+};
+
+// 计算订单总金额
+const calculateOrderTotal = (order: Order) => {
+  const subtotal = order.orderDetails.reduce((total, detail) => {
+    return (
+      total +
+      detail.skus.reduce(
+        (skuTotal, sku) => skuTotal + sku.price * sku.quantity,
+        0
+      )
+    );
+  }, 0);
+  return subtotal + (order.shipCostNoTax || 0);
 };
 
 // 获取SKU图片
@@ -351,6 +332,15 @@ const getSkuImage = (sku: OrderSku, detail: OrderDetail) => {
           text-align: right;
           min-width: 80px;
           font-size: 14px;
+          display: flex;
+          flex-direction: column;
+          align-items: flex-end;
+          gap: 4px;
+
+          .previous-value {
+            font-size: 0.9em;
+            color: var(--el-text-color-placeholder);
+          }
         }
 
         .product-total {

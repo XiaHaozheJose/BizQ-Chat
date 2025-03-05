@@ -10,47 +10,8 @@ export enum ShopType {
   Retailer = "Retailer",
 }
 
-export enum EnumCouponType {
-  Coupon = "coupon",
-  Voucher = "voucher",
-}
-
-export enum EnumCouponSource {
-  Collected = "collected",
-  Generated = "generated",
-}
-
-export enum EnumCouponUseStatus {
-  Used = "used",
-  Unused = "idle",
-  Occupied = "occupied",
-}
-
-export enum EnumLockStatus {
-  Unlocked = "unlock",
-  LockedBySeller = "lockedBySeller",
-  LockedByBuyer = "lockedByBuyer",
-}
-
-export enum EnumPaymentStatus {
-  Unpaid = "unpaid",
-  Paid = "paid",
-  SetAsPaid = "setAsPaid",
-}
-
-export enum EnumPaymentMethod {
-  Transfer = "transfer",
-  Redsys = "Redsys",
-  PayInShop = "payInShop",
-}
-
-export enum EnumLastEditedType {
-  Buyer = "buyer",
-  Seller = "seller",
-}
-
 // 新增 ShipmentDetailStatus 枚举
-export enum EnumShipmentDetailStatus {
+export enum ShipmentDetailStatus {
   TransferPending = "transferPending",
   Departed = "departed",
   Recved = "recved",
@@ -230,14 +191,4 @@ export type {
   App,
 } from "./publications";
 
-export type {
-  Order,
-  OrderSku,
-  OrderStatus,
-  OrderLockStatus,
-  OrderPayStatus,
-  OrderDetail,
-  PayLog,
-  UpdateOrderParams,
-  OrderStatusInfo,
-} from "./order";
+export type * from "./order";

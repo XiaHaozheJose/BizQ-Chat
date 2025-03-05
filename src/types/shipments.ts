@@ -16,5 +16,4 @@ export enum ShipmentDetailType {
   Shipment = "shipment",
   OutOfStock = "outofstock",
   Return = "return",
-  // ... 其他类型
 }

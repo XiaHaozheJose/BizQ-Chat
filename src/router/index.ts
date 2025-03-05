@@ -69,6 +69,7 @@ const constantRoutes: RouteRecordRaw[] = [
           },
           {
             path: "my",
+            name: "myOrders",
             component: () => import("@/views/order/MyOrders.vue"),
             meta: {
               title: "我的订单",
@@ -76,9 +77,26 @@ const constantRoutes: RouteRecordRaw[] = [
           },
           {
             path: "customer",
+            name: "customerOrders",
             component: () => import("@/views/order/CustomerOrders.vue"),
             meta: {
               title: "客户订单",
+            },
+          },
+          {
+            path: "my/detail/:id",
+            name: "myOrderDetail",
+            component: () => import("@/views/order/detail/index.vue"),
+            meta: {
+              title: "订单详情",
+            },
+          },
+          {
+            path: "customer/detail/:id",
+            name: "customerOrderDetail",
+            component: () => import("@/views/order/detail/index.vue"),
+            meta: {
+              title: "订单详情",
             },
           },
         ],

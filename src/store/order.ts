@@ -1,6 +1,11 @@
 import { defineStore } from "pinia";
 import { ref } from "vue";
-import { fetchOrders, cancelOrder, confirmOrder } from "@/services/api/order";
+import {
+  fetchOrders,
+  cancelOrder,
+  confirmOrder,
+  getOrderDetail as apiGetOrderDetail,
+} from "@/services/api/order";
 import { Order } from "@/types/order";
 import { ElMessage } from "element-plus";
 
@@ -10,6 +15,48 @@ export const useOrderStore = defineStore("order", () => {
   const hasMore = ref(true);
   const currentPage = ref(1);
   const pageSize = ref(10);
+
+  // 获取订单详情
+  const getOrderDetail = async (orderId: string) => {
+    try {
+      const orderDetail = await apiGetOrderDetail({ orderId });
+
+      // 更新store中的订单列表 - 同时检查新旧ID
+      const index = orders.value.findIndex(
+        (order) => order.id === orderId || order.id === orderDetail.id
+      );
+      if (index !== -1) {
+        orders.value[index] = orderDetail;
+      }
+
+      return orderDetail;
+    } catch (error) {
+      ElMessage.error("获取订单详情失败");
+      console.error("Failed to get order detail:", error);
+      throw error;
+    }
+  };
+
+  // 更新单个订单
+  const updateOrderInStore = async (orderId: string) => {
+    try {
+      // 获取最新的订单数据
+      const updatedOrder = await apiGetOrderDetail({ orderId });
+
+      // 在store中查找并更新订单
+      const index = orders.value.findIndex(
+        (order) => order.id === orderId || order.id === updatedOrder.id
+      );
+      if (index !== -1) {
+        orders.value[index] = updatedOrder;
+      }
+
+      return updatedOrder;
+    } catch (error) {
+      console.error("Failed to update order in store:", error);
+      throw error;
+    }
+  };
 
   const loadOrders = async (params: any = {}, refresh: boolean = false) => {
     if (loading.value) return;
@@ -62,7 +109,7 @@ export const useOrderStore = defineStore("order", () => {
 
   const confirmOrderHandler = async (orderId: string) => {
     try {
-      await confirmOrder(orderId); // 确保API中添加了这个方法
+      await confirmOrder(orderId);
       return true;
     } catch (error) {
       ElMessage.error("确认订单失败");
@@ -78,5 +125,7 @@ export const useOrderStore = defineStore("order", () => {
     loadOrders,
     cancelOrderHandler,
     confirmOrderHandler,
+    updateOrderInStore,
+    getOrderDetail,
   };
 });

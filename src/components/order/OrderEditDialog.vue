@@ -1,10 +1,5 @@
 <template>
-  <el-dialog
-    v-model="dialogVisible"
-    :title="t('order.editOrder')"
-    :width="900"
-    @close="handleCancel"
-  >
+  <el-dialog v-model="dialogVisible" :title="t('order.editOrder')" :width="900">
     <div v-if="hasData" class="order-edit-content">
       <!-- 表头 -->
       <div class="table-header">
@@ -115,7 +110,7 @@
     </div>
 
     <div v-else class="no-data">
-      {{ t("common.noData") }}
+      {{ t("order.noData") }}
     </div>
 
     <div v-if="!canEdit" class="lock-message">
@@ -225,12 +220,20 @@ const handleOk = async () => {
       }))
     );
 
-    await updateOrder(props.orderId, { skus: updatedSkus });
-    ElMessage.success(t("order.updateSuccess"));
-    emit("order-updated");
+    const response = await updateOrder(props.orderId, { skus: updatedSkus });
+    ElMessage.success(t("order.message.updateSuccess"));
+    emit("order-updated", response.data.orderHistoryId);
     dialogVisible.value = false;
   } catch (error) {
-    ElMessage.error(t("order.updateFailed"));
+    ElMessage.error(t("order.message.updateFailed"));
+    try {
+      await unlockOrder(props.orderId);
+    } catch (unlockError) {
+      console.error(
+        "Failed to unlock order after update failure:",
+        unlockError
+      );
+    }
   } finally {
     loading.value = false;
   }
@@ -241,10 +244,10 @@ const handleCancel = async () => {
     try {
       await unlockOrder(props.orderId);
     } catch (error) {
-      ElMessage.error(t("order.unlockFailed"));
+      ElMessage.error(t("order.message.unlockFailed"));
     }
   }
-  dialogVisible.value = false;
+  emit("update:visible", false);
 };
 
 const initLocalOrderDetails = () => {
@@ -267,7 +270,7 @@ const initDialog = async () => {
     try {
       await lockOrder(props.orderId);
     } catch (error) {
-      ElMessage.error(t("order.lockFailed"));
+      ElMessage.error(t("order.message.lockFailed"));
       dialogVisible.value = false;
       return;
     }

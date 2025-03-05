@@ -11,8 +11,36 @@
             link
             @click="$emit('action', 'confirm', order)"
           >
-            {{ t("order.confirm") }}
+            {{ t("common.confirm") }}
           </el-button>
+
+          <el-button
+            v-if="
+              order.payStatus === OrderPayStatus.UNPAID &&
+              order.status !== OrderStatus.CANCELED
+            "
+            type="primary"
+            size="small"
+            link
+            @click="$emit('action', 'pay', order)"
+          >
+            {{ t("order.pay") }}
+          </el-button>
+
+          <!-- 发货 -->
+          <el-button
+            v-if="
+              order.status === OrderStatus.CONFIRMED ||
+              order.status === OrderStatus.PENDING
+            "
+            type="primary"
+            size="small"
+            link
+            @click="$emit('action', 'ship', order)"
+          >
+            {{ t("order.ship") }}
+          </el-button>
+
           <el-button
             v-if="order.status === OrderStatus.UNCONFIRMED"
             type="primary"
@@ -29,7 +57,7 @@
             link
             @click="$emit('action', 'cancel', order)"
           >
-            {{ t("order.cancel") }}
+            {{ t("common.cancel") }}
           </el-button>
           <el-button
             type="primary"
@@ -67,11 +95,17 @@
 </template>
 
 <script setup lang="ts">
-import { Order, OrderLockStatus, OrderStatus } from "@/types/order";
+import {
+  Order,
+  OrderLockStatus,
+  OrderPayStatus,
+  OrderStatus,
+} from "@/types/order";
 import OrderItem from "./OrderItem.vue";
 import OrderEditDialog from "./OrderEditDialog.vue";
 import { useI18n } from "vue-i18n";
 import { ref, watch } from "vue";
+import { useOrderStore } from "@/store/order";
 
 defineProps<{
   orders: Order[];
@@ -85,6 +119,7 @@ const emit = defineEmits<{
 }>();
 
 const { t } = useI18n();
+const orderStore = useOrderStore();
 
 const editDialogVisible = ref(false);
 const currentOrder = ref<Order | null>(null);
@@ -100,7 +135,9 @@ watch(editDialogVisible, (visible) => {
   }
 });
 
-const handleOrderUpdated = () => {
+const handleOrderUpdated = async (orderId: string) => {
+  // 使用store方法更新单个订单
+  await orderStore.updateOrderInStore(orderId);
   emit("action", "refresh", currentOrder.value!);
 };
 </script>

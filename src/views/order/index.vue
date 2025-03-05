@@ -57,7 +57,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, defineProps } from "vue";
+import { ref, onMounted, watch, defineProps, computed } from "vue";
 import OrderList from "@/components/order/OrderList.vue";
 import { useOrderStore } from "@/store/order";
 import { useUserStore } from "@/store/user";
@@ -86,14 +86,14 @@ const userStore = useUserStore();
 const { orders, loading, hasMore } = storeToRefs(orderStore);
 
 const router = useRouter();
-const orderTabs: { label: string; name: OrderStatusLabel }[] = [
+const orderTabs = computed(() => [
   { label: t("order.all"), name: OrderStatusLabel.ALL },
   { label: t("order.unconfirmed"), name: OrderStatusLabel.UNCONFIRMED },
   { label: t("order.confirmed"), name: OrderStatusLabel.CONFIRMED },
   { label: t("order.processing"), name: OrderStatusLabel.PENDING },
   { label: t("order.received"), name: OrderStatusLabel.DONE },
   { label: t("order.canceled"), name: OrderStatusLabel.CANCELED },
-];
+]);
 
 // 搜索条件
 const searchText = ref("");
@@ -158,7 +158,7 @@ onMounted(() => {
 const handleOrderAction = (actionType: string, order: Order) => {
   switch (actionType) {
     case "detail":
-      router.push(`/order/detail/${order.id}`);
+      router.push(`/order/${props.orderType}/detail/${order.id}`);
       break;
     case "cancel":
       ElMessageBox.confirm(
@@ -171,7 +171,6 @@ const handleOrderAction = (actionType: string, order: Order) => {
         }
       )
         .then(() => {
-          // 调用取消订单API
           orderStore.cancelOrderHandler(order.id).then(() => {
             ElMessage.success(t("dialog.confirm.deleteOrder.success"));
             loadOrders(true);

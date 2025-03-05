@@ -1,4 +1,5 @@
 import i18n from "@/i18n";
+export * from "./order";
 
 // 生成UUID
 export const generateUUID = (): string => {

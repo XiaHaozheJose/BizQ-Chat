@@ -172,15 +172,8 @@ export interface Order {
 export enum OrderStatus {
   UNCONFIRMED = "unconfirmed",
   CONFIRMED = "confirmed",
-  CHECKED_OK = "checkedOK",
-  CHECK_PENDING = "checkPending",
-  CHECKED_ERROR = "checkedError",
-  DEPARTED = "departed",
-  PICKED_UP = "pickedUp",
-  TRANSFER_PENDING = "transferPending",
-  PICKUP_PENDING = "pickUpPending",
-  CANCELED_BY_SELLER = "canceledBySeller",
-  CANCELED_BY_BUYER = "canceledByBuyer",
+  PENDING = "pending",
+  DONE = "done",
   CANCELED = "canceled",
 }
 
