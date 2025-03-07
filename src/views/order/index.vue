@@ -57,9 +57,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, defineProps, computed } from "vue";
+import { onMounted, defineProps, computed } from "vue";
 import OrderList from "@/components/order/OrderList.vue";
 import { useOrderStore } from "@/store/order";
+import { useOrderListStore } from "@/store/order-list";
 import { useUserStore } from "@/store/user";
 import { storeToRefs } from "pinia";
 import { ElMessage, ElMessageBox } from "element-plus";
@@ -82,6 +83,7 @@ const props = defineProps({
 
 const { t } = useI18n();
 const orderStore = useOrderStore();
+const orderListStore = useOrderListStore();
 const userStore = useUserStore();
 const { orders, loading, hasMore } = storeToRefs(orderStore);
 
@@ -95,10 +97,21 @@ const orderTabs = computed(() => [
   { label: t("order.canceled"), name: OrderStatusLabel.CANCELED },
 ]);
 
-// 搜索条件
-const searchText = ref("");
-const dateRange = ref([]);
-const activeStatus = ref(OrderStatusLabel.ALL);
+// 使用store中的状态
+const searchText = computed({
+  get: () => orderListStore.searchText,
+  set: (value) => (orderListStore.searchText = value),
+});
+
+const dateRange = computed({
+  get: () => orderListStore.dateRange,
+  set: (value) => (orderListStore.dateRange = value),
+});
+
+const activeStatus = computed({
+  get: () => orderListStore.activeStatus,
+  set: (value) => (orderListStore.activeStatus = value),
+});
 
 // 处理标签页切换
 const handleTabChange = () => {
@@ -140,9 +153,9 @@ const loadOrders = (refresh: boolean = false) => {
   }
 
   // 设置日期范围
-  if (dateRange.value && dateRange.value.length === 2) {
-    params.startDate = dateRange.value[0];
-    params.endDate = dateRange.value[1];
+  if (dateRange.value && dateRange.value[0] && dateRange.value[1]) {
+    params.startDate = dateRange.value[0].toISOString();
+    params.endDate = dateRange.value[1].toISOString();
   }
 
   // 加载订单

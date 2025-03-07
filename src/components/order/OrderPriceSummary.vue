@@ -7,11 +7,11 @@
       class="summary-group"
     >
       <div class="summary-item">
-        <span class="label">{{ t("order.taxBase") }}:</span>
+        <span class="label">{{ t("order.vatBase") }}:</span>
         <span class="value">{{ formatPrice(summary.taxBase) }}</span>
       </div>
       <div class="summary-item">
-        <span class="label">{{ t("order.tax") }} ({{ summary.taxPct }}%):</span>
+        <span class="label">{{ t("order.vat") }} ({{ summary.taxPct }}%):</span>
         <span class="value">{{
           formatPrice((summary.taxBase * summary.taxPct) / 100)
         }}</span>

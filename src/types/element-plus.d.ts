@@ -91,6 +91,10 @@ declare module "@element-plus/icons-vue" {
   export const SortUp: Component;
   export const SortDown: Component;
   export const Document: Component;
+  export const WarningFilled: Component;
+  export const CircleCheckFilled: Component;
+  export const Van: Component;
+  export const Wallet: Component;
 }
 
 declare module "element-plus/dist/locale/zh-cn.mjs" {

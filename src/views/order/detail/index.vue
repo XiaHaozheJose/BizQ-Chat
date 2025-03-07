@@ -197,6 +197,12 @@
       :order-history-id="order?.id || ''"
       @payment-initiated="handlePaymentInitiated"
     />
+
+    <create-shipment-dialog
+      v-model:visible="createShipmentVisible"
+      :order="order"
+      @shipment-created="handleShipmentCreated"
+    />
   </div>
 </template>
 
@@ -217,6 +223,7 @@ import OrderAddressInfo from "@/components/order/OrderAddressInfo.vue";
 import OrderProductList from "@/components/order/OrderProductList.vue";
 import OrderPriceSummary from "@/components/order/OrderPriceSummary.vue";
 import InitiatePaymentDialog from "@/components/order/InitiatePaymentDialog.vue";
+import CreateShipmentDialog from "@/components/shipment/CreateShipmentDialog.vue";
 
 const route = useRoute();
 const router = useRouter();
@@ -228,6 +235,7 @@ const order = ref<Order | null>(null);
 const editDialogVisible = ref(false);
 const isSeller = ref(false);
 const initiatePaymentVisible = ref(false);
+const createShipmentVisible = ref(false);
 
 // 加载订单详情
 const loadOrderDetail = async () => {
@@ -360,7 +368,12 @@ const handleOutOfStock = () => {
 };
 
 const handleCreateShipment = () => {
-  // Implement create shipment logic
+  createShipmentVisible.value = true;
+};
+
+const handleShipmentCreated = async () => {
+  await loadOrderDetail();
+  ElMessage.success(t("order.shipmentCreatedSuccess"));
 };
 
 // Add type guard methods

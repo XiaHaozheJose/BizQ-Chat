@@ -14,7 +14,7 @@
             {{ t("common.confirm") }}
           </el-button>
 
-          <el-button
+          <!-- <el-button
             v-if="
               order.payStatus === OrderPayStatus.UNPAID &&
               order.status !== OrderStatus.CANCELED
@@ -24,11 +24,11 @@
             link
             @click="$emit('action', 'pay', order)"
           >
-            {{ t("order.pay") }}
-          </el-button>
+            {{ t("order.initiatePayment") }}
+          </el-button> -->
 
           <!-- 发货 -->
-          <el-button
+          <!-- <el-button
             v-if="
               order.status === OrderStatus.CONFIRMED ||
               order.status === OrderStatus.PENDING
@@ -39,7 +39,7 @@
             @click="$emit('action', 'ship', order)"
           >
             {{ t("order.ship") }}
-          </el-button>
+          </el-button> -->
 
           <el-button
             v-if="order.status === OrderStatus.UNCONFIRMED"

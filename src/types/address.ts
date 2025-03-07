@@ -9,6 +9,7 @@ export interface Area {
 
 export interface Address {
   _id: string;
+  id: string;
   type: string;
   isDefault: boolean;
   isDefaultInvoice: boolean;

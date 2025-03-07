@@ -37,6 +37,9 @@ export interface Sku {
   score: number;
   createdAt: string;
   updatedAt: string;
+  //发货单里的sku
+  orderDetailId?: string;
+  quantity?: number;
 }
 
 // 产品信息

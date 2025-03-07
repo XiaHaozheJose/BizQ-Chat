@@ -5,8 +5,8 @@
     width="520px"
     :close-on-click-modal="false"
   >
-    <el-spin v-loading="loading">
-      <div v-if="orderSummary" class="order-summary">
+    <div v-loading="loading" class="order-summary">
+      <div v-if="orderSummary">
         <order-price-summary
           :title="t('order.priceSummary')"
           :product-price-summary="orderSummary.productPriceSummary"
@@ -24,14 +24,14 @@
           <el-row>
             <el-col :span="24">
               <el-checkbox v-model="additionalOptions.reTax">
-                {{ t("order.retentionTax") }}
+                {{ t("order.includeRetentionTax") }}
               </el-checkbox>
             </el-col>
           </el-row>
           <el-row>
             <el-col :span="24">
               <el-checkbox v-model="additionalOptions.vat">
-                {{ t("order.tax") }}
+                {{ t("order.includeVat") }}
               </el-checkbox>
             </el-col>
           </el-row>
@@ -46,10 +46,11 @@
                 :min="0"
                 :step="0.01"
                 :precision="2"
-                :controls="true"
+                :controls="false"
                 style="width: 120px; margin-left: 10px"
+                @blur="handleShippingCostBlur"
               />
-              <span v-if="additionalOptions.customShipping">€</span>
+              <span v-if="additionalOptions.customShipping"> € </span>
             </el-col>
           </el-row>
         </div>
@@ -62,13 +63,14 @@
             :max="100"
             :step="0.01"
             :precision="2"
+            :controls="false"
             style="width: 120px"
-            @change="updateCalculations"
+            @blur="handleDiscountBlur"
           />
           <span>%</span>
         </div>
       </div>
-    </el-spin>
+    </div>
 
     <template #footer>
       <span class="dialog-footer">
@@ -172,22 +174,28 @@ const calculateTotal = () => {
 const updateCalculations = async () => {
   if (!orderSummary.value) return;
 
-  const data: UpdateOrderSummaryRequest = {
-    orderHistoryId: props.orderHistoryId,
-    payForTax: additionalOptions.value.vat,
-    payForRetentionTax: additionalOptions.value.reTax,
-    moreDiscPct: orderSummary.value.moreDiscPct,
-  };
-
-  if (additionalOptions.value.customShipping) {
-    data.shipmentCost = customShippingCost.value;
-  }
-
   try {
+    const data: UpdateOrderSummaryRequest = {
+      orderHistoryId: props.orderHistoryId,
+      payForTax: additionalOptions.value.vat,
+      payForRetentionTax: additionalOptions.value.reTax,
+      moreDiscPct: orderSummary.value.moreDiscPct,
+    };
+
+    if (additionalOptions.value.customShipping) {
+      data.shipmentCost = customShippingCost.value;
+    }
+
+    loading.value = true;
     const response = await updateOrderSummary(data);
-    orderSummary.value = response.data;
+    // 确保完全更新orderSummary的所有字段
+    if (response.data) {
+      orderSummary.value = response.data;
+    }
   } catch (error) {
     ElMessage.error(t("order.updateSummaryFailed"));
+  } finally {
+    loading.value = false;
   }
 };
 
@@ -256,12 +264,31 @@ watch(
 
 // 监听选项变化
 watch(
-  [additionalOptions, customShippingCost],
+  [() => additionalOptions.value.reTax, () => additionalOptions.value.vat],
   () => {
     updateCalculations();
-  },
-  { deep: true }
+  }
 );
+
+// 监听自定义运费
+watch([() => additionalOptions.value.customShipping], ([newCustomShipping]) => {
+  // 只在切换自定义运费选项时更新
+  updateCalculations();
+});
+
+// 处理运费输入完成
+const handleShippingCostBlur = () => {
+  if (additionalOptions.value.customShipping) {
+    updateCalculations();
+  }
+};
+
+// 处理额外折扣输入完成
+const handleDiscountBlur = () => {
+  if (orderSummary.value) {
+    updateCalculations();
+  }
+};
 </script>
 
 <style scoped lang="scss">

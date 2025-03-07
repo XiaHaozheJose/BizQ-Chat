@@ -1,4 +1,11 @@
 import i18n from "@/i18n";
+import {
+  OrderDetail,
+  OrderSku,
+  ShipmentDetail,
+  ShipmentDetailStatus,
+} from "@/types";
+import { ShipmentDetailType } from "@/types/shipments";
 export * from "./order";
 
 // 生成UUID
@@ -184,4 +191,63 @@ export const getCurrentPosition = async (): Promise<{
       }
     );
   });
+};
+
+// 发货, 退货
+export const calculateShippedQuantity = (
+  shipmentDetail: ShipmentDetail,
+  orderDetailId: string
+): number => {
+  return shipmentDetail.skus
+    .filter((sku) => sku.orderDetailId === orderDetailId)
+    .reduce((total, sku) => total + (sku.quantity || 0), 0);
+};
+
+export const getShipmentCounts = (sku: OrderSku) => {
+  const shippedCount = (sku.shipmentsDetails || [])
+    .filter(
+      (sd) =>
+        sd.type === ShipmentDetailType.Shipment &&
+        sd.status !== ShipmentDetailStatus.Recved
+    )
+    .reduce(
+      (total, sd) => total + calculateShippedQuantity(sd, sku.orderDetailId),
+      0
+    );
+
+  const receivedCount = (sku.shipmentsDetails || [])
+    .filter(
+      (sd) =>
+        sd.type === ShipmentDetailType.Shipment &&
+        sd.status === ShipmentDetailStatus.Recved
+    )
+    .reduce(
+      (total, sd) => total + calculateShippedQuantity(sd, sku.orderDetailId),
+      0
+    );
+
+  const outOfStockCount = (sku.shipmentsDetails || [])
+    .filter(
+      (sd) =>
+        sd.type === ShipmentDetailType.OutOfStock &&
+        sd.status === ShipmentDetailStatus.Approved
+    )
+    .reduce(
+      (total, sd) => total + calculateShippedQuantity(sd, sku.orderDetailId),
+      0
+    );
+
+  return { shippedCount, receivedCount, outOfStockCount };
+};
+
+export const canShipOrder = (orderDetails: OrderDetail[]): boolean => {
+  return orderDetails.some((detail) => detail.skus.some(canShipSku));
+};
+
+export const canShipSku = (sku: OrderSku): boolean => {
+  const { shippedCount, receivedCount, outOfStockCount } =
+    getShipmentCounts(sku);
+  const canSendAndOutOfStockQuantity =
+    (sku.quantity || 0) - receivedCount - shippedCount - outOfStockCount;
+  return canSendAndOutOfStockQuantity > 0;
 };
