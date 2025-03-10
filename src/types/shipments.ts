@@ -14,7 +14,7 @@ export enum ShipmentDetailStatus {
 
 export enum ShipmentDetailType {
   Shipment = "shipment",
-  OutOfStock = "outofstock",
+  OutOfStock = "outOfStock",
   Return = "return",
 }
 
@@ -101,4 +101,20 @@ export interface CreateShipmentRequest {
 
 export interface CreateShipmentResponse {
   id: string;
+}
+
+export interface OutOfStockSkuRequest {
+  quantity: number;
+  _id: string;
+  reason: string;
+  description: string;
+  pictures: string[];
+  orderDetailId: string;
+}
+
+export interface OutOfStockRequest {
+  packageInfo: Record<string, unknown>;
+  type: "outofstock";
+  shopId: string;
+  skus: OutOfStockSkuRequest[];
 }

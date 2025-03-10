@@ -53,7 +53,10 @@
               {{ t("order.comment") }}
             </el-button>
             <el-button
-              v-if="isOrderStatus(order?.status, OrderStatus.UNCONFIRMED)"
+              v-if="
+                isOrderStatus(order?.status, OrderStatus.UNCONFIRMED) &&
+                !isOrderStatus(order?.status, OrderStatus.CANCELED)
+              "
               type="danger"
               @click="handleCancel"
             >
@@ -112,6 +115,7 @@
             </el-button>
             <el-button
               v-if="
+                isOrderStatus(order?.status, OrderStatus.UNCONFIRMED) &&
                 !isOrderStatus(order?.status, OrderStatus.CANCELED) &&
                 canCancelOrder
               "
@@ -203,6 +207,13 @@
       :order="order"
       @shipment-created="handleShipmentCreated"
     />
+
+    <out-of-stock-dialog
+      v-model:visible="outOfStockVisible"
+      :order="order"
+      @out-of-stock-completed="handleOutOfStockCompleted"
+      @cancel-order-requested="handleCancelOrderFromOutOfStock"
+    />
   </div>
 </template>
 
@@ -224,6 +235,7 @@ import OrderProductList from "@/components/order/OrderProductList.vue";
 import OrderPriceSummary from "@/components/order/OrderPriceSummary.vue";
 import InitiatePaymentDialog from "@/components/order/InitiatePaymentDialog.vue";
 import CreateShipmentDialog from "@/components/shipment/CreateShipmentDialog.vue";
+import OutOfStockDialog from "@/components/out-of-stock/OutOfStockDialog.vue";
 
 const route = useRoute();
 const router = useRouter();
@@ -236,6 +248,7 @@ const editDialogVisible = ref(false);
 const isSeller = ref(false);
 const initiatePaymentVisible = ref(false);
 const createShipmentVisible = ref(false);
+const outOfStockVisible = ref(false);
 
 // 加载订单详情
 const loadOrderDetail = async () => {
@@ -364,7 +377,7 @@ const handlePaymentInitiated = async () => {
 };
 
 const handleOutOfStock = () => {
-  // Implement out of stock logic
+  outOfStockVisible.value = true;
 };
 
 const handleCreateShipment = () => {
@@ -400,6 +413,17 @@ const calculateSubtotal = () => {
     }, 0);
     return sum + skuTotal;
   }, 0);
+};
+
+// 处理缺货完成事件
+const handleOutOfStockCompleted = async () => {
+  await loadOrderDetail();
+  ElMessage.success(t("order.outOfStockSuccess"));
+};
+
+// 处理从缺货对话框请求取消订单
+const handleCancelOrderFromOutOfStock = () => {
+  handleCancel();
 };
 
 onMounted(() => {
